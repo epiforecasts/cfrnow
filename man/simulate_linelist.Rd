@@ -19,7 +19,8 @@ simulate_linelist(
 \item{cfr}{True case fatality ratio.}
 
 \item{delay}{Onset-to-death delay: a distspec distribution
-(\code{\link[distspec:Distributions]{distspec::LogNormal()}} or \code{\link[distspec:Distributions]{distspec::Gamma()}}) with fixed parameters.}
+(\code{\link[distspec:LogNormal]{distspec::LogNormal()}}, \code{\link[distspec:Gamma]{distspec::Gamma()}} or \code{\link[distspec:Weibull]{distspec::Weibull()}})
+with fixed parameters.}
 
 \item{recovery}{Optional onset-to-recovery delay (same form as \code{delay}); when
 given, non-fatal cases get a \code{recovery_date}.}

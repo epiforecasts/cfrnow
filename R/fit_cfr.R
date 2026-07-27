@@ -8,8 +8,9 @@
 #'
 #' The delay's native parameters may each be a fixed number (held fixed; fixing
 #' the whole delay gives the Ghani/Nishiura estimator) or a `Normal()` prior
-#' (co-estimated). The family (`LogNormal()` or `Gamma()`) sets the delay
-#' distribution. `cfr_prior` is a `Beta()`; it matters because the CFR is weakly
+#' (co-estimated). The family (`LogNormal()`, `Gamma()` or `Weibull()`) sets the
+#' delay distribution. `cfr_prior` is a `Beta()`; it matters because the CFR is
+#' weakly
 #' identified early on (`Beta(1, 1)` is uniform, `Beta(1, 9)` favours a low CFR,
 #' `Beta(6.6, 13.4)` suits a high-fatality pathogen).
 #'
@@ -22,8 +23,8 @@
 #' @param data Output of [prepare_cfr_data()], or an `epidist_cure_model` /
 #'   data frame with `y`, `outcome`, `pwindow`, `swindow`.
 #' @param delay Onset-to-death delay as a \pkg{distspec} distribution
-#'   ([distspec::LogNormal()] or [distspec::Gamma()]) whose native parameters
-#'   are fixed numbers or `Normal()` priors.
+#'   ([distspec::LogNormal()], [distspec::Gamma()] or [distspec::Weibull()])
+#'   whose native parameters are fixed numbers or `Normal()` priors.
 #' @param cfr_prior CFR prior as a [distspec::Beta()]. Defaults to `Beta(1, 1)`.
 #' @param recovery_delay Optional onset-to-recovery delay (same form as `delay`)
 #'   for the two-outcome fit; may use a different family from `delay`.

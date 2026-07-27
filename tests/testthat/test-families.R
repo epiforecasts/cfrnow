@@ -2,7 +2,8 @@ test_that("simulated delays match the requested mean and sd", {
   set.seed(1)
   specs <- list(
     LogNormal(mean = 12.75, sd = 7),
-    Gamma(mean = 12.75, sd = 7)
+    Gamma(mean = 12.75, sd = 7),
+    Weibull(mean = 12.75, sd = 7)
   )
   for (delay in specs) {
     ll <- simulate_linelist(n = 20000, cfr = 1, delay = delay)
@@ -28,7 +29,7 @@ test_that("a recovery delay adds recoveries for non-fatal cases only", {
 })
 
 test_that("unsupported families and prior-parameter delays are rejected", {
-  expect_error(delay_native_order("weibull"), "unsupported")
+  expect_error(sample_delay(5, Exponential(rate = 1)), "supports") # exp not supported
   expect_error(sample_delay(5, LogNormal(
     meanlog = Normal(2, 0.1), sdlog = Normal(0.5, 0.1)
   )), "fixed")

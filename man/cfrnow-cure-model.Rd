@@ -21,6 +21,6 @@ different family from the death delay.
 
 The delay distribution's location is \code{mu} (as \code{epidist} expects); the cure
 probability \code{cfr} is an additional dpar with a logit link. Supported delay
-families are \code{lognormal()} and \code{Gamma()}.
+families are \code{lognormal()}, \code{Gamma()} and \code{Weibull()}.
 }
 \keyword{internal}

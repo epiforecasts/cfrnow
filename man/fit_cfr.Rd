@@ -18,10 +18,10 @@ fit_cfr(
 data frame with \code{y}, \code{outcome}, \code{pwindow}, \code{swindow}.}
 
 \item{delay}{Onset-to-death delay as a \pkg{distspec} distribution
-(\code{\link[distspec:Distributions]{distspec::LogNormal()}} or \code{\link[distspec:Distributions]{distspec::Gamma()}}) whose native parameters
-are fixed numbers or \code{Normal()} priors.}
+(\code{\link[distspec:LogNormal]{distspec::LogNormal()}}, \code{\link[distspec:Gamma]{distspec::Gamma()}} or \code{\link[distspec:Weibull]{distspec::Weibull()}})
+whose native parameters are fixed numbers or \code{Normal()} priors.}
 
-\item{cfr_prior}{CFR prior as a \code{\link[distspec:Distributions]{distspec::Beta()}}. Defaults to \code{Beta(1, 1)}.}
+\item{cfr_prior}{CFR prior as a \code{\link[distspec:Beta]{distspec::Beta()}}. Defaults to \code{Beta(1, 1)}.}
 
 \item{recovery_delay}{Optional onset-to-recovery delay (same form as \code{delay})
 for the two-outcome fit; may use a different family from \code{delay}.}
@@ -49,8 +49,9 @@ are given as \pkg{distspec} distributions.
 \details{
 The delay's native parameters may each be a fixed number (held fixed; fixing
 the whole delay gives the Ghani/Nishiura estimator) or a \code{Normal()} prior
-(co-estimated). The family (\code{LogNormal()} or \code{Gamma()}) sets the delay
-distribution. \code{cfr_prior} is a \code{Beta()}; it matters because the CFR is weakly
+(co-estimated). The family (\code{LogNormal()}, \code{Gamma()} or \code{Weibull()}) sets the
+delay distribution. \code{cfr_prior} is a \code{Beta()}; it matters because the CFR is
+weakly
 identified early on (\code{Beta(1, 1)} is uniform, \code{Beta(1, 9)} favours a low CFR,
 \code{Beta(6.6, 13.4)} suits a high-fatality pathogen).
 

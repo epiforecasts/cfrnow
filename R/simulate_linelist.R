@@ -20,7 +20,8 @@
 #' @param n Number of cases.
 #' @param cfr True case fatality ratio.
 #' @param delay Onset-to-death delay: a distspec distribution
-#'   ([distspec::LogNormal()] or [distspec::Gamma()]) with fixed parameters.
+#'   ([distspec::LogNormal()], [distspec::Gamma()] or [distspec::Weibull()])
+#'   with fixed parameters.
 #' @param recovery Optional onset-to-recovery delay (same form as `delay`); when
 #'   given, non-fatal cases get a `recovery_date`.
 #' @param onset_start First possible onset date.
@@ -74,15 +75,26 @@ simulate_linelist <- function(n = 200, cfr = 0.5, delay, recovery = NULL,
 #' @noRd
 sample_delay <- function(n, delay) {
   fam <- get_distribution(delay)
-  pars <- get_parameters(delay)[delay_native_order(fam)]
+  pars <- get_parameters(delay)[natural_params(delay)]
   if (!all(vapply(pars, is.numeric, logical(1)))) {
     stop("simulate_linelist() needs a delay with fixed parameters (numbers), ",
       "not priors.",
       call. = FALSE
     )
   }
-  switch(fam,
+  out <- switch(fam,
     lognormal = stats::rlnorm(n, pars[["meanlog"]], pars[["sdlog"]]),
-    gamma = stats::rgamma(n, shape = pars[["shape"]], rate = pars[["rate"]])
+    gamma = stats::rgamma(n, shape = pars[["shape"]], rate = pars[["rate"]]),
+    weibull = stats::rweibull(
+      n,
+      shape = pars[["shape"]], scale = pars[["scale"]]
+    )
   )
+  if (is.null(out)) {
+    stop("simulate_linelist() supports LogNormal(), Gamma() and Weibull() ",
+      "delays only.",
+      call. = FALSE
+    )
+  }
+  out
 }

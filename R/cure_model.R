@@ -16,7 +16,7 @@
 #'
 #' The delay distribution's location is `mu` (as `epidist` expects); the cure
 #' probability `cfr` is an additional dpar with a logit link. Supported delay
-#' families are `lognormal()` and `Gamma()`.
+#' families are `lognormal()`, `Gamma()` and `Weibull()`.
 #'
 #' @name cfrnow-cure-model
 #' @keywords internal
@@ -81,8 +81,8 @@ assert_epidist.epidist_cure_model <- function(data, ...) {
 }
 
 .assert_delay_family <- function(family, what = "delay") {
-  if (!family$family %in% c("lognormal", "gamma")) {
-    stop("cfrnow supports lognormal() and Gamma() ", what, "s only.",
+  if (!family$family %in% c("lognormal", "gamma", "weibull")) {
+    stop("cfrnow supports lognormal(), Gamma() and Weibull() ", what, "s only.",
       call. = FALSE
     )
   }
@@ -130,19 +130,18 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
 
 # The native Stan parameterisation brms uses for a family's mu-form, read out of
 # a dummy model (as epidist does), so primarycensored gets the right arguments.
+# The mu-form arguments may themselves contain parentheses (e.g. weibull's
+# `mu ./ tgamma(1 + 1 ./ shape)`), so the args run to the statement's closing
+# `);` rather than the first `)`.
 .family_stan_param <- function(family_name) {
   code <- brms::make_stancode(y ~ 1,
     data = data.frame(y = c(1, 2)),
     family = family_name
   )
-  pat <- sprintf("target \\+= %s_(lpdf|lpmf)\\(Y \\| ([^)]+)\\)", family_name)
-  hits <- grep("mu", regmatches(code, gregexpr(pat, code))[[1]],
-    fixed = TRUE, value = TRUE
-  )
-  sub(")", "", sub(
-    sprintf("target \\+= %s_(lpdf|lpmf)\\(Y \\| ", family_name),
-    "", hits[1]
-  ), fixed = TRUE)
+  pat <- sprintf("%s_l[a-z]+\\(Y \\| (.+?)\\);", family_name)
+  stmts <- regmatches(code, gregexpr(pat, code, perl = TRUE))[[1]]
+  stmt <- grep("mu", stmts, fixed = TRUE, value = TRUE)[1]
+  sub(pat, "\\1", stmt, perl = TRUE)
 }
 
 # Fill a `<<hole>>` template from inst/stan with a named list of replacements.

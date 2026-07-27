@@ -11,7 +11,7 @@ naive_cfr <- function(n_deaths, n_cases) {
 #'
 #' `loc_var` is the location intercept and `scale_var` the second parameter's
 #' intercept; the second parameter is log-linked. Handles lognormal (loc is
-#' meanlog) and gamma (loc is log-mean, second parameter is shape).
+#' meanlog), gamma and weibull (loc is log-mean, second parameter is the shape).
 #' @noRd
 .delay_moments <- function(dr, loc_var, scale_var, family) {
   loc <- dr[[loc_var]]
@@ -19,6 +19,11 @@ naive_cfr <- function(n_deaths, n_cases) {
   if (family == "lognormal") {
     dmean <- exp(loc + sc^2 / 2)
     list(mean = dmean, sd = sqrt(exp(sc^2) - 1) * dmean)
+  } else if (family == "weibull") {
+    # brms weibull: mu is the mean (log link), sc is the shape k
+    dmean <- exp(loc)
+    cv <- sqrt(gamma(1 + 2 / sc) / gamma(1 + 1 / sc)^2 - 1)
+    list(mean = dmean, sd = dmean * cv)
   } else {
     dmean <- exp(loc)
     list(mean = dmean, sd = dmean / sqrt(sc))

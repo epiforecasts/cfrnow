@@ -1,6 +1,6 @@
 Package: cfrnow
 Title: Real-Time Case Fatality Ratio via a Mixture-Cure Survival Model
-Version: 0.1.0.9000
+Version: 0.2.0
 Authors@R:
     person("Sebastian", "Funk", , "sebastian.funk@lshtm.ac.uk",
            role = c("aut", "cre"))
@@ -18,7 +18,7 @@ BugReports: https://github.com/sbfnk/cfrnow/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:
-    distspec,
+    distspec (>= 0.1.0),
     R (>= 4.1.0)
 Imports:
     brms,

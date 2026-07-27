@@ -1,5 +1,11 @@
-# cfrnow (development version)
+# cfrnow 0.2.0
 
+* `fit_cfr()` and `simulate_linelist()` support a `Weibull()` onset-to-death (and
+  recovery) delay, alongside `LogNormal()` and `Gamma()`.
+* Delay parameterisation now uses distspec's exported `natural_params()` in place
+  of an internal helper, tracking the distspec API.
+* Added a "Stratified and partially-pooled CFR" vignette covering no-, complete-
+  and partial-pooling CFR fits and per-group `summary()` output.
 * `pp_check_cfr()` runs a posterior-predictive check on a fit: it draws replicate
   line-list outcomes from the posterior, replays the real-time truncation, and
   compares the observed death counts (plus recoveries in a two-outcome fit) and

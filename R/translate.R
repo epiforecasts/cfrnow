@@ -66,6 +66,37 @@
   )
 }
 
+# distspec Weibull() uses (shape, scale); brms weibull uses (mu = mean, shape),
+# both log-linked. Build the mu prior from mean = scale * gamma(1 + 1 / shape),
+# propagating shape/scale uncertainty to log(mu) by the delta method.
+.weibull_mu_prior <- function(shape_spec, scale_spec, dpar) {
+  mu_of <- function(k, lambda) lambda * gamma(1 + 1 / k)
+  if (!is.null(shape_spec$fixed) && !is.null(scale_spec$fixed)) {
+    return(.prior_row(
+      list(fixed = mu_of(shape_spec$fixed, scale_spec$fixed)), dpar, TRUE
+    ))
+  }
+  kc <- shape_spec$fixed %||% shape_spec$mean
+  lc <- scale_spec$fixed %||% scale_spec$mean
+  # d log(mu)/d shape uses digamma(1 + 1/k); sign drops on squaring
+  d_shape <- digamma(1 + 1 / kc) / kc^2
+  vlog <- sqrt(
+    ((scale_spec$sd %||% 0) / lc)^2 + (d_shape * (shape_spec$sd %||% 0))^2
+  )
+  prior_args <- if (nzchar(dpar)) {
+    list(class = "Intercept", dpar = dpar)
+  } else {
+    list(class = "Intercept")
+  }
+  do.call(
+    brms::set_prior,
+    c(
+      list(sprintf("normal(%.6f, %.6f)", log(lc) + lgamma(1 + 1 / kc), vlog)),
+      prior_args
+    )
+  )
+}
+
 # A distspec delay -> list(family, prior). `main = TRUE` targets the death delay
 # (mu is the main dpar); `main = FALSE` the recovery delay (r-prefixed dpars).
 .delay_family_prior <- function(delay, main = TRUE) {
@@ -78,25 +109,39 @@
   fam <- get_distribution(delay)
   pars <- get_parameters(delay)
   loc_dpar <- if (main) "" else "rmu"
-  if (fam == "lognormal") {
-    scale_dpar <- if (main) "sigma" else "rsigma"
-    prior <- c(
-      .prior_row(.param_spec(pars$meanlog), loc_dpar, FALSE),
-      .prior_row(.param_spec(pars$sdlog), scale_dpar, TRUE)
+  scale_dpar <- if (main) "sigma" else "rsigma"
+  shape_dpar <- if (main) "shape" else "rshape"
+  out <- switch(fam,
+    lognormal = {
+      prior <- c(
+        .prior_row(.param_spec(pars$meanlog), loc_dpar, FALSE),
+        .prior_row(.param_spec(pars$sdlog), scale_dpar, TRUE)
+      )
+      list(family = brms::lognormal(), prior = prior)
+    },
+    gamma = {
+      sh <- .param_spec(pars$shape)
+      prior <- c(
+        .gamma_mu_prior(sh, .param_spec(pars$rate), loc_dpar),
+        .prior_row(sh, shape_dpar, TRUE)
+      )
+      list(family = stats::Gamma(link = "log"), prior = prior)
+    },
+    weibull = {
+      sh <- .param_spec(pars$shape)
+      prior <- c(
+        .weibull_mu_prior(sh, .param_spec(pars$scale), loc_dpar),
+        .prior_row(sh, shape_dpar, TRUE)
+      )
+      list(family = brms::weibull(), prior = prior)
+    }
+  )
+  if (is.null(out)) {
+    stop("cfrnow supports LogNormal(), Gamma() and Weibull() delays only.",
+      call. = FALSE
     )
-    list(family = brms::lognormal(), prior = prior)
-  } else if (fam == "gamma") {
-    scale_dpar <- if (main) "shape" else "rshape"
-    sh <- .param_spec(pars$shape)
-    rate_spec <- .param_spec(pars$rate)
-    prior <- c(
-      .gamma_mu_prior(sh, rate_spec, loc_dpar),
-      .prior_row(sh, scale_dpar, TRUE)
-    )
-    list(family = stats::Gamma(link = "log"), prior = prior)
-  } else {
-    stop("cfrnow supports LogNormal() and Gamma() delays only.", call. = FALSE)
   }
+  out
 }
 
 # A Normal(m, s) on logit(cfr) whose induced mean/sd on the [0, 1] CFR scale
