@@ -1,3 +1,8 @@
+# cfrnow (development version)
+
+* distspec is now on CRAN, so it is dropped from `Remotes` and installed from
+  CRAN like the other dependencies.
+
 # cfrnow 0.2.0
 
 * `fit_cfr()` and `simulate_linelist()` support a `Weibull()` onset-to-death (and
