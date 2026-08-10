@@ -1,4 +1,4 @@
-# cfrnow (development version)
+# cfrnow 0.2.1
 
 * distspec is now on CRAN, so it is dropped from `Remotes` and installed from
   CRAN like the other dependencies.
