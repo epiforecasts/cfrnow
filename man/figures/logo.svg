@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1732" height="2000" viewBox="0 0 1732 2000">
-<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-<stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FDF2F5"/>
+<defs>
+<linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#FFFFFF"/>
+<stop offset="1" stop-color="#FDF2F5"/>
 </linearGradient>
 <clipPath id="clip"><polygon points="866,0 1732,500 1732,1500 866,2000 0,1500 0,500"/></clipPath>
 </defs>
@@ -19,7 +21,7 @@
 <path d="M 1336 922 l 86 0 m -34 -34 l 34 34 l -34 34" fill="none" stroke="#8A98A8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
 <line x1="250" y1="1040" x2="840" y2="1040" stroke="#D3DDE7" stroke-width="34" stroke-linecap="round"/>
 <path d="M 840 1040 l 86 0 m -34 -34 l 34 34 l -34 34" fill="none" stroke="#8A98A8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="866" y="1610" text-anchor="middle" font-family="Fira Sans, DejaVu Sans, Helvetica, Arial, sans-serif" font-size="252" font-weight="600" letter-spacing="2" fill="#16212A">cfr<tspan fill="#A82A44">now</tspan></text>
 </g>
+<text x="866" y="1610" text-anchor="middle" font-family="Fira Sans, DejaVu Sans, Helvetica, Arial, sans-serif" font-size="252" font-weight="600" letter-spacing="2" fill="#16212A">cfr<tspan fill="#A82A44">now</tspan></text>
 <polygon points="866,0 1732,500 1732,1500 866,2000 0,1500 0,500" fill="none" stroke="#A82A44" stroke-width="44" stroke-linejoin="round"/>
 </svg>
