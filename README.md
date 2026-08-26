@@ -1,12 +1,12 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# cfrnow
+# cfrnow <img src="man/figures/logo.png" align="right" height="139" alt="cfrnow logo" />
 
 <!-- badges: start -->
 
-[![R-CMD-check](https://github.com/sbfnk/cfrnow/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/sbfnk/cfrnow/actions/workflows/R-CMD-check.yaml)
-[![codecov](https://codecov.io/gh/sbfnk/cfrnow/branch/main/graph/badge.svg)](https://app.codecov.io/gh/sbfnk/cfrnow)
+[![R-CMD-check](https://github.com/epiforecasts/cfrnow/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/epiforecasts/cfrnow/actions/workflows/R-CMD-check.yaml)
+[![codecov](https://codecov.io/gh/epiforecasts/cfrnow/branch/main/graph/badge.svg)](https://app.codecov.io/gh/epiforecasts/cfrnow)
 [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
