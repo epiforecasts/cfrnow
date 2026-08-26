@@ -13,8 +13,8 @@ Description: Estimates a real-time case fatality ratio (CFR) from line-list data
     bias of the naive deaths / cases ratio in real time. The delay is
     co-estimated using the 'primarycensored' censored-distribution machinery.
 License: MIT + file LICENSE
-URL: https://sbfnk.github.io/cfrnow/, https://github.com/sbfnk/cfrnow
-BugReports: https://github.com/sbfnk/cfrnow/issues
+URL: https://epiforecasts.io/cfrnow/, https://github.com/epiforecasts/cfrnow
+BugReports: https://github.com/epiforecasts/cfrnow/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 Depends:

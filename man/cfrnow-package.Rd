@@ -11,9 +11,9 @@ Estimates a real-time case fatality ratio (CFR) from line-list data using a Baye
 \seealso{
 Useful links:
 \itemize{
-  \item \url{https://sbfnk.github.io/cfrnow/}
-  \item \url{https://github.com/sbfnk/cfrnow}
-  \item Report bugs at \url{https://github.com/sbfnk/cfrnow/issues}
+  \item \url{https://epiforecasts.io/cfrnow/}
+  \item \url{https://github.com/epiforecasts/cfrnow}
+  \item Report bugs at \url{https://github.com/epiforecasts/cfrnow/issues}
 }
 
 }
