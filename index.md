@@ -1,0 +1,171 @@
+# cfrnow
+
+Real-time case fatality ratio (CFR) estimation from line-list data,
+using a Bayesian mixture-cure survival model. `cfrnow` is registered as
+an [epidist](https://epidist.epinowcast.org/) model type, so the CFR and
+the onset-to-death delay both take `brms` formulas. You can put
+covariates (or a time-varying effect) on either.
+
+## Installation
+
+Install `cfrnow` from the epiforecasts
+[r-universe](https://epiforecasts.r-universe.dev/):
+
+``` r
+
+install.packages(
+  "cfrnow",
+  repos = c(
+    "https://epiforecasts.r-universe.dev",
+    "https://epinowcast.r-universe.dev",
+    getOption("repos")
+  )
+)
+```
+
+This pulls in the packages `cfrnow` builds on
+([epidist](https://epidist.epinowcast.org/),
+[brms](https://paulbuerkner.com/brms/),
+[primarycensored](https://primarycensored.epinowcast.org/) and
+[distspec](https://epiforecasts.io/distspec/)): `epidist` comes from the
+epinowcast r-universe, the rest from CRAN.
+
+Fitting runs through CmdStan, so you also need
+[cmdstanr](https://mc-stan.org/cmdstanr/) and a CmdStan install:
+
+``` r
+
+# install.packages("cmdstanr", repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
+cmdstanr::check_cmdstan_toolchain()
+cmdstanr::install_cmdstan()
+```
+
+## Why
+
+The naive `deaths / cases` ratio runs low in real time, because recent
+cases have not had time to die yet. Switching to *resolved* cases,
+`deaths / (deaths + recoveries)`, overshoots the other way: deaths
+resolve faster than recoveries, so the resolved set is top-heavy with
+deaths.
+
+`cfrnow` conditions on neither. Each case is fatal with probability
+`cfr`; a fatal case dies after an interval-censored onset-to-death delay
+`F`; and a case still unresolved at the cut-off is right-censored,
+contributing `1 - cfr * F(t)` (it is either non-fatal or fatal but not
+yet resolved). Hold `F` fixed and you recover the Ghani/Nishiura
+estimator ([Ghani et al. 2005](https://doi.org/10.1093/aje/kwi230);
+[Nishiura et al. 2009](https://doi.org/10.1371/journal.pone.0006852));
+here the model co-estimates `F` and carries its uncertainty through.
+Give it recovery dates and the two-outcome fit uses onset-to-recovery
+timing as well.
+[primarycensored](https://primarycensored.epinowcast.org/) handles the
+onset interval-censoring and the real-time right-truncation of `F`.
+
+## Usage
+
+``` r
+
+library(cfrnow)
+#> Loading required package: distspec
+#> 
+#> Attaching package: 'distspec'
+#> The following objects are masked from 'package:stats':
+#> 
+#>     Gamma, sd
+
+# your own onset_date / death_date line list, or a simulated one
+set.seed(1)
+ll <- simulate_linelist(
+  n = 400, cfr = 0.55, onset_days = 45,
+  delay = Gamma(mean = 12.75, sd = 7)
+)
+d <- prepare_cfr_data(ll, obs_time = as.Date("2026-02-20"))
+c(cases = d$n_cases, deaths = d$n_deaths, censored = d$n_cens)
+#>    cases   deaths censored 
+#>      400      180      220
+```
+
+Supply the onset-to-death `delay` and a `cfr_prior` as
+[distspec](https://epiforecasts.io/distspec/) distributions. A native
+delay parameter can be a
+[`Normal()`](https://epiforecasts.io/distspec/reference/Normal.html)
+prior (co-estimated) or a fixed number (held fixed; fixing the whole
+delay gives the Ghani/Nishiura estimator). The `cfr_prior` is a
+[`Beta()`](https://epiforecasts.io/distspec/reference/Beta.html) and
+matters because the CFR is weakly identified early on: `Beta(1, 1)` is
+uniform, `Beta(1, 9)` favours a low CFR, and `Beta(6.6, 13.4)` (mean
+0.33) suits a high-fatality pathogen.
+
+``` r
+
+onset_to_death <- LogNormal(meanlog = Normal(2.41, 0.2), sdlog = Normal(0.51, 0.15))
+fit <- fit_cfr(d, delay = onset_to_death, cfr_prior = Beta(1, 1))
+summary(fit)
+#>     quantity   mean   q2.5    q50  q97.5  rhat ess_bulk
+#> 1        cfr  0.560  0.505  0.560  0.615 1.001     3100
+#> 2 delay_mean 12.700 11.600 12.700 13.900 1.000     3300
+#> 3   delay_sd  7.100  6.200  7.000  8.200 1.000     3000
+```
+
+Swap the family, fix the delay, or add recovery timing. And because the
+model is fitted through `epidist`, you can put covariates (or a smooth
+on time) on the CFR via a `formula`:
+
+``` r
+
+fit_cfr(d, delay = Gamma(shape = Normal(3, 1), rate = Normal(0.25, 0.1))) # gamma
+fit_cfr(d, delay = LogNormal(meanlog = 2.41, sdlog = 0.51)) # fixed-F
+fit_cfr(d,
+  delay = onset_to_death,
+  recovery_delay = LogNormal(Normal(2.9, 0.3), Normal(0.5, 0.2))
+) # two-outcome
+
+# covariate / time-varying CFR: carry the column through the prep, then
+# reference it in the formula (the onset date rides along as `onset`).
+dc <- prepare_cfr_data(ll, obs_time = as.Date("2026-02-20"), covariates = "age_group")
+fit_cfr(dc, delay = onset_to_death, formula = brms::bf(mu ~ 1, cfr ~ age_group))
+```
+
+Pass `obs_time = NULL` to
+[`prepare_cfr_data()`](https://epiforecasts.io/cfrnow/reference/prepare_cfr_data.md)
+for a retrospective fit (it reduces to the naive ratio with the delay as
+a nuisance).
+
+Your line list needs `onset_date` and `death_date` (`NA` for cases that
+have not died). Optional `onset_lower`/`onset_upper` widen the onset
+censoring, and a `recovery_date` column switches on the two-outcome fit
+that also times recoveries.
+[`summary()`](https://rdrr.io/r/base/summary.html) reports
+`rhat`/`ess_bulk` (and `recovery_mean`/`_sd` when recoveries are used)
+and flags `cfr_low_information` when the CFR posterior has barely moved
+from its prior, which is expected early on, when the estimate is
+prior-driven.
+
+## Assumptions and caveats
+
+The correction fixes a *timing* bias; it cannot repair the data. Worth
+reading before you quote a number:
+
+- Deaths need to be ascertained completely. A death that never reaches
+  the line list (a community death outside a treatment centre, say)
+  looks like a survivor and drags the CFR down. This is the main worry
+  wherever ascertainment is centred on treatment centres.
+- Put the death *notification* date in `death_date`, not the true date
+  of death. A case counts as a death once its `death_date` is on or
+  before the cut-off, so the notification date lets the censoring absorb
+  any reporting lag and keeps `cfr` correct. The delay the model then
+  works with is onset-to-notification, so read `delay_mean`/`delay_sd`
+  (and any biological delay prior) in that light. With no reporting lag,
+  plain death dates are fine.
+- The delay and CFR are taken as stationary and homogeneous unless you
+  say otherwise: one delay and one CFR for the whole outbreak. Put a
+  formula on `cfr` (a smooth on time, say) to let it vary.
+- The delay family is a modelling choice, not something the fit learns.
+  Gamma and lognormal differ in tail weight (how fast a recent case
+  counts as “probably cured”), and sparse data can’t tell them apart, so
+  refit with the other one to check sensitivity.
+- Recovery timing leans on complete discharge data. In the two-outcome
+  fit a case that really recovered but whose recovery went unrecorded
+  stays censored and drifts toward the fatal branch over time, biasing
+  `cfr` *up*. The death-only default (no `recovery_date`) sidesteps
+  this, so prefer it where discharge recording is patchy.
