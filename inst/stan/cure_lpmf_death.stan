@@ -8,19 +8,19 @@
      <<primary_id>>     primarycensored primary (uniform) distribution id
 
    outcome: 1 = observed death, 3 = resolved non-death, else = censored. */
-real cfrnow_<<family>>_lpmf(data int y, <<death_pars>>, real cfr,
+real cfrnow_<<family>>_lpmf(data int y, <<death_pars>>, real prob,
                             data real outcome, data real pwindow,
                             data real swindow, array[] real primary_params) {
   if (outcome == 1) {
-    return log(cfr) + primarycensored_lpmf(
+    return log(prob) + primarycensored_lpmf(
         y | <<death_id>>, {<<death_reparam>>}, pwindow, y + swindow, 0.0,
         positive_infinity(), <<primary_id>>, primary_params);
   } else if (outcome == 3) {
-    return log1m(cfr);
+    return log1m(prob);
   } else {
     real fbar = primarycensored_cdf(
         y | <<death_id>>, {<<death_reparam>>}, pwindow, 0.0,
         positive_infinity(), <<primary_id>>, primary_params);
-    return log1m(cfr * fbar);
+    return log1m(prob * fbar);
   }
 }

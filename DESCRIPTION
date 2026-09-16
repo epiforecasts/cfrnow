@@ -1,6 +1,6 @@
 Package: cfrnow
 Title: Real-Time Case Fatality Ratio via a Mixture-Cure Survival Model
-Version: 0.2.1
+Version: 0.2.1.9000
 Authors@R:
     person("Sebastian", "Funk", , "sebastian.funk@lshtm.ac.uk",
            role = c("aut", "cre"))
@@ -24,6 +24,7 @@ Imports:
     brms,
     checkmate,
     epidist,
+    lifecycle,
     posterior,
     primarycensored,
     rlang,

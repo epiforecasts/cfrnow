@@ -5,22 +5,25 @@
 \title{Real-time CFR as an \code{epidist} mixture-cure model}
 \description{
 \code{cfrnow} registers a mixture-cure survival model as an \code{\link[epidist:epidist]{epidist::epidist()}}
-model type. Each case is fatal with probability \code{cfr} and, when fatal, dies
+model type. Each case is fatal with probability \code{prob} and, when fatal, dies
 at an onset-to-death delay; cases still alive at the observation cut-off are
 right-censored, which corrects the downward bias of the naive deaths / cases
-ratio in real time. Because the model is an \code{epidist} subclass, the CFR and
+ratio in real time. Because the model is an \code{epidist} subclass, \code{prob} and
 the delay both take \code{brms} formulas, e.g.
-\code{epidist(data, bf(mu ~ 1, cfr ~ age), family = lognormal())}.
+\code{epidist(data, bf(mu ~ 1, prob ~ age), family = lognormal())}. \code{prob} is a
+CFR when the line list runs from onset to death; the same model fits a
+hospital fatality ratio or other outcome probability for a differently
+defined line list.
 }
 \details{
 With a \code{recovery_delay}, the fit becomes a two-outcome mixture-cure model
 that also times recoveries: a non-fatal case recovers at a second delay, so a
-recovered case contributes \verb{(1 - cfr) f_R(r)} and an unresolved case
-\code{cfr (1 - F_D(t)) + (1 - cfr)(1 - F_R(t))}. The recovery delay may use a
+recovered case contributes \verb{(1 - prob) f_R(r)} and an unresolved case
+\code{prob (1 - F_D(t)) + (1 - prob)(1 - F_R(t))}. The recovery delay may use a
 different family from the death delay.
 
 The delay distribution's location is \code{mu} (as \code{epidist} expects); the cure
-probability \code{cfr} is an additional dpar with a logit link. Supported delay
+probability \code{prob} is an additional dpar with a logit link. Supported delay
 families are \code{lognormal()}, \code{Gamma()} and \code{Weibull()}.
 }
 \keyword{internal}
