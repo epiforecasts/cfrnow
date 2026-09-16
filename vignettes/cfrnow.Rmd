@@ -19,15 +19,16 @@ time: recent cases have not yet had time to die. Restricting to cases with a
 bias, because deaths resolve faster than recoveries.
 
 `cfrnow` sidesteps both by never conditioning on resolution. Each case is fatal
-with probability `cfr`; a fatal case dies at an interval-censored onset-to-death
+with probability `prob`; a fatal case dies at an interval-censored onset-to-death
 delay `F`; every case still unresolved at the cut-off is right-censored,
-contributing the mixture-cure survival term `1 - cfr * F(t)`. With `F` fixed this
+contributing the mixture-cure survival term `1 - prob * F(t)`. With `F` fixed this
 is the Ghani/Nishiura estimator; here `F` is co-estimated and its uncertainty
 propagated.
 
 `cfrnow` is registered as an [epidist](https://epidist.epinowcast.org/) model
-type, so `cfr` and the delay both take `brms` formulas. That is how you put
-covariates, or a smooth time effect, on the CFR.
+type, so `prob` and the delay both take `brms` formulas. That is how you put
+covariates, or a smooth time effect, on `prob`. `prob` is a CFR when the line
+list runs from onset to death, as it does throughout this vignette.
 
 ```{r setup}
 library(cfrnow)
@@ -66,19 +67,19 @@ round(naive, 3) # the downward-biased naive ratio
 
 ## Fitting
 
-Supply the onset-to-death `delay` and a `cfr_prior` as `distspec` distributions.
+Supply the onset-to-death `delay` and a `prob_prior` as `distspec` distributions.
 A native delay parameter can be a `Normal()` prior (co-estimated) or a fixed
-number; the `cfr_prior` is a `Beta()`, which matters because the CFR is weakly
+number; the `prob_prior` is a `Beta()`, which matters because `prob` is weakly
 identified early on. `summary()` reports the corrected CFR and the delay moments
 (days) with convergence diagnostics.
 
 ```{r fit, eval = FALSE}
 onset_to_death <- LogNormal(meanlog = Normal(2.41, 0.2), sdlog = Normal(0.51, 0.15))
-fit <- fit_cfr(d, delay = onset_to_death, cfr_prior = Beta(6.6, 13.4))
+fit <- fit_cfr(d, delay = onset_to_death, prob_prior = Beta(6.6, 13.4))
 summary(fit)
 ```
 
-The corrected `cfr` sits above the naive ratio and, with enough resolved deaths,
+The corrected `prob` sits above the naive ratio and, with enough resolved deaths,
 covers the true 0.55. `summary()` also carries a `cfr_low_information` attribute,
 `TRUE` when the CFR posterior has barely moved from its prior, which is expected
 very early in an outbreak, when the estimate is prior-driven.
@@ -86,7 +87,7 @@ very early in an outbreak, when the estimate is prior-driven.
 ## Covariates and time-varying CFR
 
 Because the model is fitted through `epidist`, a `brms::bf()` puts a formula on
-`cfr` (or on the delay location `mu`). `prepare_cfr_data()` carries the onset
+`prob` (or on the delay location `mu`). `prepare_cfr_data()` carries the onset
 date through as `onset`, plus any line-list columns named in `covariates`, so
 those terms are available to the formula. Here we stratify by a group, building
 two groups with different true CFRs and recovering the difference:
@@ -107,16 +108,16 @@ grouped <- rbind(
 
 fit <- fit_cfr(grouped,
   delay = onset_to_death,
-  formula = brms::bf(mu ~ 1, cfr ~ group)
+  formula = brms::bf(mu ~ 1, prob ~ group)
 )
-brms::fixef(fit) # the cfr_grouplow coefficient is negative (low group < high)
+brms::fixef(fit) # the prob_grouplow coefficient is negative (low group < high)
 ```
 
 For a time-varying CFR, derive a time index from the `onset` column and put a
 curve on it. To show that the fit recovers a real signal, we simulate a line
 list whose true CFR ramps logistically from about 0.15 to 0.6 over twelve onset
 weeks, prepare it at a cut-off three weeks past the last onset, and fit a natural
-spline in the week. A fixed-degree spline (`ns(week, df = 3)`) enters the CFR as
+spline in the week. A fixed-degree spline (`ns(week, df = 3)`) enters `prob` as
 ordinary basis columns, which samples cleanly; a penalised smooth (`s(week)`)
 would fit too, but its smoothing-variance parameter makes the posterior harder
 to sample. The delay is fixed here to isolate the time-varying CFR:
@@ -136,11 +137,11 @@ cure <- prepare_cfr_data(ll_tv, obs_time = max(onset_date) + 21) |>
 cure$week <- as.numeric(cure$onset - min(cure$onset)) %/% 7
 fit <- fit_cfr(cure,
   delay = LogNormal(meanlog = 2.41, sdlog = 0.51),
-  formula = brms::bf(mu ~ 1, cfr ~ splines::ns(week, df = 3))
+  formula = brms::bf(mu ~ 1, prob ~ splines::ns(week, df = 3))
 )
 ```
 
-Recovering `cfr(week)` with `brms::posterior_epred(fit, dpar = "cfr")` and plotting its
+Recovering `prob(week)` with `brms::posterior_epred(fit, dpar = "prob")` and plotting its
 posterior against the true curve, the spline tracks the ramp closely and, as
 expected, widens at the most recent week, where cases are still largely censored.
 The fit is precomputed (the vignette builder has no CmdStan); see
@@ -197,15 +198,15 @@ fit_cfr(d,
 )
 ```
 
-This sharpens `cfr` when discharge recording is reliable, but an actually-recovered
+This sharpens `prob` when discharge recording is reliable, but an actually-recovered
 case whose recovery is *unrecorded* stays censored and is pushed toward the fatal
-branch over time, biasing `cfr` up. So without a `recovery_delay`, recoveries are
+branch over time, biasing `prob` up. So without a `recovery_delay`, recoveries are
 treated as untimed resolutions (the death-only default), which is safer where
 discharge data are patchy.
 
 ## Caveats
 
 The correction fixes a *timing* bias, not the data. A death that never reaches
-the line list is treated as a survivor and biases `cfr` down. Use the death
+the line list is treated as a survivor and biases `prob` down. Use the death
 *notification* date in `death_date` so the censoring absorbs any reporting lag;
 the delay the model then estimates is onset-to-notification.

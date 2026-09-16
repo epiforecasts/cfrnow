@@ -29,8 +29,8 @@ estimates where a group's sample is small. Fitting one CFR for all groups
 *Partial pooling* lies between the two: each group's CFR is drawn from a common
 distribution, so groups with more data are estimated close to independently while
 groups with less data are shrunk toward the shared mean. `cfrnow` is an
-[epidist](https://epidist.epinowcast.org/) model, so the CFR takes a `brms`
-formula and pooling is a one-line change: `cfr ~ (1 | group)`.
+[epidist](https://epidist.epinowcast.org/) model, so `prob` takes a `brms`
+formula and pooling is a one-line change: `prob ~ (1 | group)`.
 
 ## A six-site line list
 
@@ -76,29 +76,29 @@ time short; use more for inference.)
 otd <- LogNormal(meanlog = Normal(2.4, 0.2), sdlog = Normal(0.5, 0.15))
 otr <- LogNormal(meanlog = Normal(2.7, 0.2), sdlog = Normal(0.5, 0.15))
 args <- list(
-  delay = otd, recovery_delay = otr, cfr_prior = Beta(1, 1),
+  delay = otd, recovery_delay = otr, prob_prior = Beta(1, 1),
   backend = "cmdstanr", chains = 2, iter = 1000, refresh = 0, seed = 1
 )
 
 # complete pooling: a single CFR
-fit_pool    <- do.call(fit_cfr, c(list(d, formula = brms::bf(mu ~ 1, cfr ~ 1)), args))
+fit_pool    <- do.call(fit_cfr, c(list(d, formula = brms::bf(mu ~ 1, prob ~ 1)), args))
 
 # no pooling: an independent CFR per site (one estimated logit-CFR per site)
-fit_sep     <- do.call(fit_cfr, c(list(d, formula = brms::bf(mu ~ 1, cfr ~ 0 + site)), args))
+fit_sep     <- do.call(fit_cfr, c(list(d, formula = brms::bf(mu ~ 1, prob ~ 0 + site)), args))
 
 # partial pooling: per-site CFR shrunk to a common mean
-fit_partial <- do.call(fit_cfr, c(list(d, formula = brms::bf(mu ~ 1, cfr ~ (1 | site))), args))
+fit_partial <- do.call(fit_cfr, c(list(d, formula = brms::bf(mu ~ 1, prob ~ (1 | site))), args))
 ```
 
 ## Reading the estimates
 
-For the complete-pool fit, `summary()` reports a single `cfr` row:
+For the complete-pool fit, `summary()` reports a single `prob` row:
 
 ```{r summary-pool}
 summary(fit_pool)
 ```
 
-For a grouped fit it reports one `cfr[<site>]` row per site:
+For a grouped fit it reports one `prob[<site>]` row per site:
 
 ```{r summary-grouped}
 summary(fit_sep)
@@ -110,10 +110,10 @@ the complete-pool fit supplies the shared mean.
 ```{r extract}
 cfr_rows <- function(fit, approach) {
   s <- summary(fit)
-  r <- s[grepl("^cfr\\[", s$quantity), ] # the cfr[<site>] rows
+  r <- s[grepl("^prob\\[", s$quantity), ] # the prob[<site>] rows
   data.frame(
     approach = approach,
-    site = sub("^cfr\\[(.*)\\]$", "\\1", r$quantity),
+    site = sub("^prob\\[(.*)\\]$", "\\1", r$quantity),
     median = r$q50, lower = r$q2.5, upper = r$q97.5
   )
 }
@@ -123,7 +123,7 @@ est <- merge(est, sites[, c("site", "n", "cfr")], by = "site")
 names(est)[names(est) == "cfr"] <- "truth"
 
 s_pool <- summary(fit_pool)
-pool_mean <- s_pool$q50[s_pool$quantity == "cfr"]
+pool_mean <- s_pool$q50[s_pool$quantity == "prob"]
 ```
 
 ## Shrinkage
@@ -160,7 +160,7 @@ contributing to a single multimodal one:
 
 ```{r delay-pool, eval = FALSE}
 fit_both <- do.call(fit_cfr, c(
-  list(d, formula = brms::bf(mu ~ (1 | site), cfr ~ (1 | site))), args
+  list(d, formula = brms::bf(mu ~ (1 | site), prob ~ (1 | site))), args
 ))
 ```
 
