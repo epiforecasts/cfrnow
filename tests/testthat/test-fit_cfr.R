@@ -19,9 +19,9 @@ test_that("a retrospective fit matches the naive proportion", {
   set.seed(11)
   ll <- simulate_linelist(n = 1500, cfr = 0.4, delay = LogNormal(2.4, 0.5))
   d <- prepare_cfr_data(ll, obs_time = NULL) # every case resolved
-  s <- summary(fit_quick(d, delay = otd, cfr_prior = Beta(1, 1)))
+  s <- summary(fit_quick(d, delay = otd, prob_prior = Beta(1, 1)))
   # with every case resolved the cure model reduces to deaths / cases
-  expect_equal(s$q50[s$quantity == "cfr"], attr(s, "naive_cfr"), tolerance = 0.03)
+  expect_equal(s$q50[s$quantity == "prob"], attr(s, "naive_cfr"), tolerance = 0.03)
 })
 
 test_that("real-time correction lifts above naive and covers truth", {
@@ -32,8 +32,8 @@ test_that("real-time correction lifts above naive and covers truth", {
     delay = LogNormal(2.4, 0.5)
   )
   d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 2)
-  s <- summary(fit_quick(d, delay = otd, cfr_prior = Beta(1, 1)))
-  cfr <- s[s$quantity == "cfr", ]
+  s <- summary(fit_quick(d, delay = otd, prob_prior = Beta(1, 1)))
+  cfr <- s[s$quantity == "prob", ]
   expect_gt(cfr[["q50"]], attr(s, "naive_cfr")) # corrected > naive
   expect_lt(cfr[["q2.5"]], 0.6) # 95% CrI covers the truth
   expect_gt(cfr[["q97.5"]], 0.6)
@@ -53,10 +53,10 @@ test_that("a gamma delay recovers the CFR and delay moments", {
       shape = Normal(4, 1),
       rate = Normal(0.5, 0.2)
     ),
-    cfr_prior = Beta(1, 1)
+    prob_prior = Beta(1, 1)
   ))
-  expect_lt(s[s$quantity == "cfr", "q2.5"], 0.4)
-  expect_gt(s[s$quantity == "cfr", "q97.5"], 0.4)
+  expect_lt(s[s$quantity == "prob", "q2.5"], 0.4)
+  expect_gt(s[s$quantity == "prob", "q97.5"], 0.4)
   expect_equal(s[s$quantity == "delay_mean", "q50"], 8, tolerance = 0.8)
 })
 
@@ -70,11 +70,11 @@ test_that("a weibull delay recovers the CFR and delay moments", {
   d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 2)
   s <- summary(fit_quick(d,
     delay = Weibull(shape = Normal(1.5, 0.4), scale = Normal(13, 3)),
-    cfr_prior = Beta(1, 1)
+    prob_prior = Beta(1, 1)
   ))
   true_mean <- 13 * gamma(1 + 1 / 1.5) # Weibull mean = scale * Gamma(1 + 1/shape)
-  expect_lt(s[s$quantity == "cfr", "q2.5"], 0.4)
-  expect_gt(s[s$quantity == "cfr", "q97.5"], 0.4)
+  expect_lt(s[s$quantity == "prob", "q2.5"], 0.4)
+  expect_gt(s[s$quantity == "prob", "q97.5"], 0.4)
   expect_equal(s[s$quantity == "delay_mean", "q50"], true_mean, tolerance = 1.5)
 })
 
@@ -90,7 +90,7 @@ test_that("a Weibull recovery delay compiles and gives sensible moments", {
   fit <- fit_quick(d,
     delay = Gamma(shape = Normal(3.3, 1), rate = Normal(0.26, 0.08)),
     recovery_delay = Weibull(shape = Normal(2.4, 0.6), scale = Normal(23.7, 4)),
-    cfr_prior = Beta(1, 1)
+    prob_prior = Beta(1, 1)
   )
   expect_equal(fit$cfrnow$recovery_family, "weibull") # differs from gamma death
   s <- summary(fit)
@@ -106,11 +106,11 @@ test_that("a fixed delay runs the Ghani/Nishiura estimator (delay held constant)
   d <- prepare_cfr_data(ll, obs_time = NULL)
   s <- summary(fit_quick(d,
     delay = LogNormal(meanlog = 2.41, sdlog = 0.51),
-    cfr_prior = Beta(1, 1)
+    prob_prior = Beta(1, 1)
   ))
   expect_true(is.na(s[s$quantity == "delay_mean", "rhat"])) # delay is constant
-  expect_lt(s[s$quantity == "cfr", "q2.5"], 0.5)
-  expect_gt(s[s$quantity == "cfr", "q97.5"], 0.5)
+  expect_lt(s[s$quantity == "prob", "q2.5"], 0.5)
+  expect_gt(s[s$quantity == "prob", "q97.5"], 0.5)
 })
 
 test_that("the formula interface puts covariates on the CFR", {
@@ -123,10 +123,10 @@ test_that("the formula interface puts covariates on the CFR", {
   da$grp <- "low"
   db$grp <- "high"
   d <- as_epidist_cure_model(rbind(da, db))
-  fit <- fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, cfr ~ grp))
+  fit <- fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, prob ~ grp))
   fe <- brms::fixef(fit)
-  expect_true("cfr_grplow" %in% rownames(fe))
-  expect_lt(fe["cfr_grplow", "Estimate"], 0) # low group < high group
+  expect_true("prob_grplow" %in% rownames(fe))
+  expect_lt(fe["prob_grplow", "Estimate"], 0) # low group < high group
 })
 
 test_that("a two-outcome fit uses recovery timing (own family) and recovers F_R", {
@@ -141,7 +141,7 @@ test_that("a two-outcome fit uses recovery timing (own family) and recovers F_R"
   fit <- fit_quick(d,
     delay = Gamma(shape = Normal(3.3, 1), rate = Normal(0.26, 0.08)),
     recovery_delay = LogNormal(meanlog = Normal(2.9, 0.3), sdlog = Normal(0.5, 0.2)),
-    cfr_prior = Beta(1, 1)
+    prob_prior = Beta(1, 1)
   )
   expect_equal(fit$cfrnow$recovery_family, "lognormal") # differs from gamma death
   s <- summary(fit)
@@ -160,7 +160,7 @@ test_that("a young outbreak is flagged low-information and print warns", {
   d <- prepare_cfr_data(ll, obs_time = min(ll$onset_date) + 3)
   fit <- fit_quick(d,
     delay = LogNormal(meanlog = 2.41, sdlog = 0.51),
-    cfr_prior = Beta(1, 1)
+    prob_prior = Beta(1, 1)
   )
   expect_true(attr(summary(fit), "cfr_low_information"))
   expect_message(print(fit), "weakly identified")
@@ -171,7 +171,7 @@ test_that("print reports the delay family, counts and naive CFR", {
   set.seed(6)
   ll <- simulate_linelist(n = 400, cfr = 0.5, delay = LogNormal(2.4, 0.5))
   d <- prepare_cfr_data(ll, obs_time = NULL)
-  fit <- fit_quick(d, delay = otd, cfr_prior = Beta(1, 1))
+  fit <- fit_quick(d, delay = otd, prob_prior = Beta(1, 1))
   expect_message(print(fit), "lognormal delay")
   expect_message(print(fit), "naive CFR")
   expect_invisible(suppressMessages(print(fit)))
@@ -187,10 +187,10 @@ test_that("an intercept-free cfr formula fits one CFR per group", {
   da$grp <- "low"
   db$grp <- "high"
   d <- as_epidist_cure_model(rbind(da, db))
-  fit <- fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, cfr ~ 0 + grp))
+  fit <- fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, prob ~ 0 + grp))
   fe <- brms::fixef(fit)
-  expect_true(all(c("cfr_grplow", "cfr_grphigh") %in% rownames(fe)))
-  expect_lt(fe["cfr_grplow", "Estimate"], fe["cfr_grphigh", "Estimate"])
+  expect_true(all(c("prob_grplow", "prob_grphigh") %in% rownames(fe)))
+  expect_lt(fe["prob_grplow", "Estimate"], fe["prob_grphigh", "Estimate"])
 })
 
 test_that("summary() reports a CFR per group for a grouped fit", {
@@ -203,10 +203,40 @@ test_that("summary() reports a CFR per group for a grouped fit", {
   da$site <- "A"
   db$site <- "B"
   d <- as_epidist_cure_model(rbind(da, db))
-  s <- summary(fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, cfr ~ 0 + site)))
-  expect_true(all(c("cfr[A]", "cfr[B]") %in% s$quantity))
-  expect_lt(abs(s[s$quantity == "cfr[A]", "q50"] - 0.25), 0.07)
-  expect_lt(abs(s[s$quantity == "cfr[B]", "q50"] - 0.60), 0.07)
+  s <- summary(fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, prob ~ 0 + site)))
+  expect_true(all(c("prob[A]", "prob[B]") %in% s$quantity))
+  expect_lt(abs(s[s$quantity == "prob[A]", "q50"] - 0.25), 0.07)
+  expect_lt(abs(s[s$quantity == "prob[B]", "q50"] - 0.60), 0.07)
   # the weak-identification flag is not defined for a grouped fit
   expect_true(is.na(attr(s, "cfr_low_information")))
+})
+
+test_that("cfr_prior is a soft-deprecated alias for prob_prior", {
+  skip_if_no_cmdstan()
+  set.seed(11)
+  ll <- simulate_linelist(n = 500, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+  d <- prepare_cfr_data(ll, obs_time = NULL)
+  fit <- lifecycle::expect_deprecated(
+    fit_quick(d, delay = otd, cfr_prior = Beta(1, 1)),
+    "prob_prior"
+  )
+  expect_true("prob" %in% summary(fit)$quantity)
+})
+
+test_that("a `cfr ~ ...` formula is soft-deprecated and translated to `prob`", {
+  skip_if_no_cmdstan()
+  set.seed(20)
+  a <- simulate_linelist(n = 400, cfr = 0.2, delay = LogNormal(2.4, 0.5))
+  b <- simulate_linelist(n = 400, cfr = 0.6, delay = LogNormal(2.4, 0.5))
+  da <- as_epidist_cure_model(prepare_cfr_data(a, obs_time = NULL))
+  db <- as_epidist_cure_model(prepare_cfr_data(b, obs_time = NULL))
+  da$grp <- "low"
+  db$grp <- "high"
+  d <- as_epidist_cure_model(rbind(da, db))
+  fit <- lifecycle::expect_deprecated(
+    fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, cfr ~ grp)),
+    "prob"
+  )
+  fe <- brms::fixef(fit)
+  expect_true("prob_grplow" %in% rownames(fe)) # translated, not cfr_grplow
 })

@@ -39,9 +39,9 @@ test_that("naive_cfr is deaths/cases, and NA when there are no cases", {
   expect_true(is.na(naive_cfr(0, 0)))
 })
 
-test_that(".cfr_prior_sd reads a normal cfr prior and is NA otherwise", {
-  expect_true(is.na(.cfr_prior_sd(brms::set_prior("beta(1, 1)", class = "b"))))
-  s <- .cfr_prior_sd(.cfr_prior_to_brms(Beta(1, 1)))
+test_that(".prob_prior_sd reads a normal prob prior and is NA otherwise", {
+  expect_true(is.na(.prob_prior_sd(brms::set_prior("beta(1, 1)", class = "b"))))
+  s <- .prob_prior_sd(.prob_prior_to_brms(Beta(1, 1)))
   expect_true(is.finite(s) && s > 0 && s < 0.5) # (0,1)-scale prior sd
 })
 
@@ -62,10 +62,10 @@ test_that(".delay_family_prior maps Normal() params to normal priors and family"
   expect_error(.delay_family_prior(5), "distspec")
 })
 
-test_that(".cfr_prior_to_brms turns a Beta into a logit-normal of matching sd", {
-  p <- .cfr_prior_to_brms(Beta(1, 1)) # uniform: sd = 1/sqrt(12)
-  expect_equal(.cfr_prior_sd(p), 1 / sqrt(12), tolerance = 0.03)
-  expect_error(.cfr_prior_to_brms(Gamma(1, 1)), "Beta")
+test_that(".prob_prior_to_brms turns a Beta into a logit-normal of matching sd", {
+  p <- .prob_prior_to_brms(Beta(1, 1)) # uniform: sd = 1/sqrt(12)
+  expect_equal(.prob_prior_sd(p), 1 / sqrt(12), tolerance = 0.03)
+  expect_error(.prob_prior_to_brms(Gamma(1, 1)), "Beta")
 })
 
 test_that("simulate_linelist requires a delay", {
