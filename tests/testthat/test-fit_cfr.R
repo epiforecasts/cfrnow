@@ -193,6 +193,24 @@ test_that("an intercept-free cfr formula fits one CFR per group", {
   expect_lt(fe["cfr_grplow", "Estimate"], fe["cfr_grphigh", "Estimate"])
 })
 
+test_that("fit_cfr warns and subsets onset when a covariate has missing values", {
+  skip_if_no_cmdstan()
+  set.seed(23)
+  ll <- simulate_linelist(n = 200, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+  ll$age_group <- sample(c("young", "old"), nrow(ll), replace = TRUE)
+  ll$age_group[c(3, 10)] <- NA
+  d <- prepare_cfr_data(ll, obs_time = NULL, covariates = "age_group")
+
+  expect_warning(
+    fit <- fit_quick(d,
+      delay = otd, formula = brms::bf(mu ~ 1, cfr ~ age_group)
+    ),
+    "2 case\\(s\\) dropped"
+  )
+  expect_equal(length(fit$cfrnow$onset), nrow(fit$data))
+  expect_equal(fit$cfrnow$n_cases, nrow(d$cases)) # unaffected: whole-data count
+})
+
 test_that("summary() reports a CFR per group for a grouped fit", {
   skip_if_no_cmdstan()
   set.seed(22)
