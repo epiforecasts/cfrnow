@@ -1,5 +1,8 @@
 # cfrnow 0.2.1
 
+* `fit_cfr()` warns and `pp_check_cfr()` no longer errors when a `formula`
+  covariate has missing values: brms drops those cases before fitting, and
+  the stored onset dates are now kept in step with the rows it actually used.
 * distspec is now on CRAN, so it is dropped from `Remotes` and installed from
   CRAN like the other dependencies.
 
