@@ -89,10 +89,10 @@ fit_cfr <- function(data,
   )
   # brms drops rows with a missing formula covariate before fitting, so the
   # stored onset dates (used by pp_check_cfr() to replay real-time truncation)
-  # must be subset to the rows it actually kept; row names of fit$data are the
-  # original row numbers of `cure`. Warn too, since dropping cases silently
+  # must be subset to the rows it actually kept; brms preserves the row names
+  # of `cure`, including after input subsetting. Warn too, since dropping cases
   # changes the estimand.
-  used_rows <- as.integer(rownames(fit$data))
+  used_rows <- match(rownames(fit$data), rownames(cure))
   n_dropped <- nrow(cure) - length(used_rows)
   if (n_dropped > 0) {
     warning(n_dropped, " case(s) dropped because a formula covariate is ",

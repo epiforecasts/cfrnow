@@ -211,6 +211,35 @@ test_that("fit_cfr warns and subsets onset when a covariate has missing values",
   expect_equal(fit$cfrnow$n_cases, nrow(d$cases)) # unaffected: whole-data count
 })
 
+test_that("fit_cfr preserves onset alignment with retained input row names", {
+  set.seed(24)
+  ll <- simulate_linelist(n = 30, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+  ll$age_group <- rep(c("young", "old"), length.out = nrow(ll))
+  d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date),
+    covariates = "age_group"
+  )
+  d$cases <- d$cases[-1, ]
+
+  for (custom_names in c(FALSE, TRUE)) {
+    for (missing_covariate in c(FALSE, TRUE)) {
+      input <- d
+      if (custom_names) {
+        rownames(input$cases) <- paste0("case", seq_len(nrow(input$cases)))
+      }
+      if (missing_covariate) input$cases$age_group[c(3, 10)] <- NA
+      expected <- input$cases$onset[!is.na(input$cases$age_group)]
+
+      # Exercise brms preprocessing without compiling or sampling a model.
+      fit <- suppressWarnings(fit_cfr(input,
+        delay = otd, formula = brms::bf(mu ~ 1, cfr ~ age_group),
+        empty = TRUE
+      ))
+      expect_identical(fit$cfrnow$onset, expected)
+      expect_length(fit$cfrnow$onset, nrow(fit$data))
+    }
+  }
+})
+
 test_that("summary() reports a CFR per group for a grouped fit", {
   skip_if_no_cmdstan()
   set.seed(22)
