@@ -216,8 +216,8 @@ test_that("cfr_prior is a soft-deprecated alias for prob_prior", {
   set.seed(11)
   ll <- simulate_linelist(n = 500, cfr = 0.4, delay = LogNormal(2.4, 0.5))
   d <- prepare_cfr_data(ll, obs_time = NULL)
-  fit <- lifecycle::expect_deprecated(
-    fit_quick(d, delay = otd, cfr_prior = Beta(1, 1)),
+  lifecycle::expect_deprecated(
+    fit <- fit_quick(d, delay = otd, cfr_prior = Beta(1, 1)),
     "prob_prior"
   )
   expect_true("prob" %in% summary(fit)$quantity)
@@ -233,8 +233,8 @@ test_that("a `cfr ~ ...` formula is soft-deprecated and translated to `prob`", {
   da$grp <- "low"
   db$grp <- "high"
   d <- as_epidist_cure_model(rbind(da, db))
-  fit <- lifecycle::expect_deprecated(
-    fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, cfr ~ grp)),
+  lifecycle::expect_deprecated(
+    fit <- fit_quick(d, delay = otd, formula = brms::bf(mu ~ 1, cfr ~ grp)),
     "prob"
   )
   fe <- brms::fixef(fit)
