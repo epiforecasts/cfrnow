@@ -53,7 +53,7 @@ test_that("summary() applies the ascertainment correction to a real fit", {
   down <- summary(fit, ascertainment_ratio = 2)
   up <- summary(fit, ascertainment_ratio = 0.5)
 
-  cfr_med <- function(s) s[s$quantity == "cfr", "q50"]
+  cfr_med <- function(s) s[s$quantity == "prob", "q50"]
   expect_lt(cfr_med(down), cfr_med(base))
   expect_gt(cfr_med(up), cfr_med(base))
   # the default leaves the CFR untouched
@@ -67,11 +67,12 @@ test_that("summary() applies the ascertainment correction to a real fit", {
   )
 })
 
-test_that(".cfr_is_grouped detects a grouped cfr formula", {
+test_that(".prob_is_grouped detects a grouped prob formula", {
   mk <- function(f) structure(list(formula = f), class = "brmsfit")
-  expect_false(.cfr_is_grouped(mk(brms::bf(mu ~ 1)))) # cfr defaults to intercept
-  expect_false(.cfr_is_grouped(mk(brms::bf(mu ~ 1, cfr ~ 1))))
-  expect_true(.cfr_is_grouped(mk(brms::bf(mu ~ 1, cfr ~ site))))
-  expect_true(.cfr_is_grouped(mk(brms::bf(mu ~ 1, cfr ~ 0 + site))))
-  expect_true(.cfr_is_grouped(mk(brms::bf(mu ~ 1, cfr ~ (1 | site)))))
+  # prob defaults to intercept-only
+  expect_false(.prob_is_grouped(mk(brms::bf(mu ~ 1))))
+  expect_false(.prob_is_grouped(mk(brms::bf(mu ~ 1, prob ~ 1))))
+  expect_true(.prob_is_grouped(mk(brms::bf(mu ~ 1, prob ~ site))))
+  expect_true(.prob_is_grouped(mk(brms::bf(mu ~ 1, prob ~ 0 + site))))
+  expect_true(.prob_is_grouped(mk(brms::bf(mu ~ 1, prob ~ (1 | site)))))
 })

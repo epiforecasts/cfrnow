@@ -47,26 +47,26 @@ cure$week <- as.numeric(cure$onset - min(cure$onset)) %/% 7
 # demonstration from the delay's uncertainty.
 onset_to_death <- LogNormal(meanlog = 2.41, sdlog = 0.51)
 
-# A fixed-df natural spline on the week enters the CFR as ordinary basis
+# A fixed-df natural spline on the week enters `prob` as ordinary basis
 # columns with Normal priors, so there is no penalised-smooth variance
 # hyperparameter and hence no funnel: the model samples cleanly at the default
 # adapt_delta while still fitting a flexible curve.
 fit <- fit_cfr(
   cure,
   delay = onset_to_death,
-  cfr_prior = Beta(1, 1),
-  formula = brms::bf(mu ~ 1, cfr ~ splines::ns(week, df = 3)),
+  prob_prior = Beta(1, 1),
+  formula = brms::bf(mu ~ 1, prob ~ splines::ns(week, df = 3)),
   backend = "cmdstanr", chains = 4, cores = 4, iter = 1000, refresh = 0,
   seed = 1
 )
 
-# --- Recover cfr(week) on the cfr dpar (logit link) -----------------------
+# --- Recover prob(week) on the prob dpar (logit link) ----------------------
 # Predict on the fitted rows rather than a fresh grid: every case in a week
-# shares the same `week`, so its cfr prediction is identical, and reusing the
+# shares the same `week`, so its prob prediction is identical, and reusing the
 # training design matrix sidesteps recomputing the spline basis from a new
 # range.
 weeks <- sort(unique(cure$week))
-cfr_all <- brms::posterior_epred(fit, dpar = "cfr")   # ndraws x n_cases
+cfr_all <- brms::posterior_epred(fit, dpar = "prob")   # ndraws x n_cases
 cfr_draws <- cfr_all[, match(weeks, cure$week), drop = FALSE]
 
 cfr_week <- data.frame(

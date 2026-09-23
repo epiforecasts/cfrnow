@@ -1,21 +1,24 @@
 #' Real-time CFR as an `epidist` mixture-cure model
 #'
 #' `cfrnow` registers a mixture-cure survival model as an [epidist::epidist()]
-#' model type. Each case is fatal with probability `cfr` and, when fatal, dies
+#' model type. Each case is fatal with probability `prob` and, when fatal, dies
 #' at an onset-to-death delay; cases still alive at the observation cut-off are
 #' right-censored, which corrects the downward bias of the naive deaths / cases
-#' ratio in real time. Because the model is an `epidist` subclass, the CFR and
+#' ratio in real time. Because the model is an `epidist` subclass, `prob` and
 #' the delay both take `brms` formulas, e.g.
-#' `epidist(data, bf(mu ~ 1, cfr ~ age), family = lognormal())`.
+#' `epidist(data, bf(mu ~ 1, prob ~ age), family = lognormal())`. `prob` is a
+#' CFR when the line list runs from onset to death; the same model fits a
+#' hospital fatality ratio or other outcome probability for a differently
+#' defined line list.
 #'
 #' With a `recovery_delay`, the fit becomes a two-outcome mixture-cure model
 #' that also times recoveries: a non-fatal case recovers at a second delay, so a
-#' recovered case contributes `(1 - cfr) f_R(r)` and an unresolved case
-#' `cfr (1 - F_D(t)) + (1 - cfr)(1 - F_R(t))`. The recovery delay may use a
+#' recovered case contributes `(1 - prob) f_R(r)` and an unresolved case
+#' `prob (1 - F_D(t)) + (1 - prob)(1 - F_R(t))`. The recovery delay may use a
 #' different family from the death delay.
 #'
 #' The delay distribution's location is `mu` (as `epidist` expects); the cure
-#' probability `cfr` is an additional dpar with a logit link. Supported delay
+#' probability `prob` is an additional dpar with a logit link. Supported delay
 #' families are `lognormal()`, `Gamma()` and `Weibull()`.
 #'
 #' @name cfrnow-cure-model
@@ -23,10 +26,10 @@
 NULL
 
 # Outcome codes carried in the `outcome` vreal (match cfrnow's likelihood):
-#   1 = observed death (timed)       -> log(cfr) + death delay density
-#   2 = recorded recovery (timed)    -> log1m(cfr) + recovery delay density
-#   3 = resolved non-death (untimed) -> log1m(cfr)  (cure factor)
-#   0 = censored survivor            -> death-only: log1m(cfr F_D(t));
+#   1 = observed death (timed)       -> log(prob) + death delay density
+#   2 = recorded recovery (timed)    -> log1m(prob) + recovery delay density
+#   3 = resolved non-death (untimed) -> log1m(prob)  (cure factor)
+#   0 = censored survivor            -> death-only: log1m(prob F_D(t));
 #                                       two-outcome: log_sum_exp mixture
 .CURE_DEATH <- 1
 .CURE_RECOVERY <- 2
@@ -92,7 +95,7 @@ assert_epidist.epidist_cure_model <- function(data, ...) {
 #' @export
 epidist_family_model.epidist_cure_model <- function(data, family, ...) {
   .assert_delay_family(family)
-  dpars <- c(family$dpars, "cfr")
+  dpars <- c(family$dpars, "prob")
   links <- c(.delay_links(family), "logit")
   if (isTRUE(attr(data, "use_recovery"))) {
     rfam <- attr(data, "recovery_family")
@@ -175,9 +178,9 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
 #' @export
 epidist_stancode.epidist_cure_model <- function(data, family, formula, ...) {
   family_name <- sub("^cfrnow_", "", family$name)
-  cfr_pos <- match("cfr", family$dpars)
-  delay_dpars <- family$dpars[seq_len(cfr_pos - 1)]
-  use_recovery <- cfr_pos < length(family$dpars)
+  prob_pos <- match("prob", family$dpars)
+  delay_dpars <- family$dpars[seq_len(prob_pos - 1)]
+  use_recovery <- prob_pos < length(family$dpars)
 
   holes <- list(
     family = family_name,
@@ -188,7 +191,7 @@ epidist_stancode.epidist_cure_model <- function(data, family, formula, ...) {
   )
   template <- "cure_lpmf_death.stan"
   if (use_recovery) {
-    recovery_dpars <- family$dpars[(cfr_pos + 1):length(family$dpars)]
+    recovery_dpars <- family$dpars[(prob_pos + 1):length(family$dpars)]
     holes <- c(holes, .recovery_holes(
       family, attr(data, "recovery_family"),
       recovery_dpars

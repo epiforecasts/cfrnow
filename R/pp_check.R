@@ -93,7 +93,7 @@
       dpar = dpar, transform = TRUE, draw_ids = ids
     )
   }
-  cfr <- lp("cfr")
+  cfr <- lp("prob")
   loc <- lp("mu")
   sc <- lp(scale_dpar)
 
@@ -166,7 +166,7 @@
 #' two-outcome fit), and the distribution of the observed onset-to-death delays.
 #'
 #' The check reuses the fit's own posterior draws of the CFR and the delay, so
-#' it works for covariate and time-varying `cfr ~ ...` fits as well as
+#' it works for covariate and time-varying `prob ~ ...` fits as well as
 #' intercept-only ones. It needs the observation cut-off, which [fit_cfr()]
 #' records when the data come from [prepare_cfr_data()]; a retrospective fit
 #' (`obs_time = NULL`) has no truncation to replay, so every fatal case shows up

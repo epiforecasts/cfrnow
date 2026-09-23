@@ -4,7 +4,7 @@
 
 stancode_for <- function(cure, delay, recovery_delay = NULL) {
   dd <- .delay_family_prior(delay)
-  prior <- c(.cfr_prior_to_brms(Beta(1, 1)), dd$prior)
+  prior <- c(.prob_prior_to_brms(Beta(1, 1)), dd$prior)
   if (!is.null(recovery_delay) && isTRUE(attr(cure, "use_recovery"))) {
     rd <- .delay_family_prior(recovery_delay, main = FALSE)
     prior <- c(prior, rd$prior)
@@ -50,14 +50,15 @@ test_that("a two-outcome fit generates recovery branches with its own family", {
   expect_true(grepl("rmu", code)) # recovery params are r-prefixed
 })
 
-test_that("an intercept-free cfr formula routes the prior to the coefficients", {
-  # where cfr_prior lands depends on whether the cfr formula keeps its intercept
-  expect_true(.cfr_has_intercept(mu ~ 1)) # cfr defaults to intercept-only
-  expect_true(.cfr_has_intercept(brms::bf(mu ~ 1, cfr ~ grp)))
-  expect_false(.cfr_has_intercept(brms::bf(mu ~ 1, cfr ~ 0 + grp)))
+test_that("an intercept-free prob formula routes the prior to the coefficients", {
+  # where prob_prior lands depends on whether the prob formula keeps its
+  # intercept
+  expect_true(.prob_has_intercept(mu ~ 1)) # prob defaults to intercept-only
+  expect_true(.prob_has_intercept(brms::bf(mu ~ 1, prob ~ grp)))
+  expect_false(.prob_has_intercept(brms::bf(mu ~ 1, prob ~ 0 + grp)))
 
-  expect_equal(.cfr_prior_to_brms(Beta(1, 1))$class, "Intercept")
-  expect_equal(.cfr_prior_to_brms(Beta(1, 1), "b")$class, "b")
+  expect_equal(.prob_prior_to_brms(Beta(1, 1))$class, "Intercept")
+  expect_equal(.prob_prior_to_brms(Beta(1, 1), "b")$class, "b")
 
   a <- simulate_linelist(n = 80, cfr = 0.3, delay = LogNormal(2.4, 0.5))
   b <- simulate_linelist(n = 80, cfr = 0.6, delay = LogNormal(2.4, 0.5))
@@ -68,21 +69,31 @@ test_that("an intercept-free cfr formula routes the prior to the coefficients", 
   cure <- as_epidist_cure_model(rbind(ca, cb))
 
   dd <- .delay_family_prior(LogNormal(meanlog = 2.41, sdlog = 0.51))
-  f <- brms::bf(mu ~ 1, cfr ~ 0 + grp)
+  f <- brms::bf(mu ~ 1, prob ~ 0 + grp)
 
   # the prior on the (absent) intercept is what brms rejects ...
   expect_error(
     epidist::epidist(cure,
       formula = f, family = dd$family,
-      prior = c(.cfr_prior_to_brms(Beta(1, 1), "Intercept"), dd$prior),
+      prior = c(.prob_prior_to_brms(Beta(1, 1), "Intercept"), dd$prior),
       merge_priors = FALSE, fn = brms::make_stancode
     )
   )
   # ... and moving it onto the coefficients generates cleanly
   code <- epidist::epidist(cure,
     formula = f, family = dd$family,
-    prior = c(.cfr_prior_to_brms(Beta(1, 1), "b"), dd$prior),
+    prior = c(.prob_prior_to_brms(Beta(1, 1), "b"), dd$prior),
     merge_priors = FALSE, fn = brms::make_stancode
   )
-  expect_true(grepl("cfr", code))
+  expect_true(grepl("prob", code))
+})
+
+test_that(".formula_has_cfr / .rename_cfr_formula translate `cfr ~ ...`", {
+  expect_false(.formula_has_cfr(mu ~ 1))
+  expect_false(.formula_has_cfr(brms::bf(mu ~ 1, prob ~ grp)))
+  expect_true(.formula_has_cfr(brms::bf(mu ~ 1, cfr ~ grp)))
+
+  translated <- .rename_cfr_formula(brms::bf(mu ~ 1, cfr ~ 0 + grp))
+  expect_null(translated$pforms$cfr)
+  expect_equal(translated$pforms$prob, prob ~ 0 + grp)
 })

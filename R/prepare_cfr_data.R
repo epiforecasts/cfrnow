@@ -32,9 +32,9 @@
 #'   right-censored; and a death dated after `obs_time` is treated as
 #'   not-yet-known (right-censored).
 #' @param covariates Character vector of `linelist` column names to carry
-#'   through to the per-case model rows, so they can be used in a `cfr ~ ...`
+#'   through to the per-case model rows, so they can be used in a `prob ~ ...`
 #'   formula. The onset date is always carried as `onset`; for a time-varying
-#'   CFR derive a time term from it (e.g. `week`) and pass `cfr ~ s(week)`.
+#'   CFR derive a time term from it (e.g. `week`) and pass `prob ~ s(week)`.
 #' @param t0 Optional time origin (`Date`). Defaults to
 #'   `min(onset) - max_delay`.
 #' @param max_delay Plausibility filter for data-entry errors, in days: a death

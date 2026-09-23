@@ -1,3 +1,13 @@
+# cfrnow (development version)
+
+* The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
+  is a case fatality ratio only when the line list runs from onset to death; the
+  same model can fit a hospital fatality ratio or other outcome probability for a
+  differently defined line list. Use `prob ~ ...` in `formula` and
+  `prob_prior` in `fit_cfr()`; `summary()` now reports a `prob` (or
+  `prob[<group>]`) row. `cfr ~ ...` and `cfr_prior` are still accepted and
+  translated to `prob`, with a soft-deprecation warning.
+
 # cfrnow 0.2.1
 
 * distspec is now on CRAN, so it is dropped from `Remotes` and installed from

@@ -29,9 +29,9 @@ right-censored; and a death dated after \code{obs_time} is treated as
 not-yet-known (right-censored).}
 
 \item{covariates}{Character vector of \code{linelist} column names to carry
-through to the per-case model rows, so they can be used in a \code{cfr ~ ...}
+through to the per-case model rows, so they can be used in a \code{prob ~ ...}
 formula. The onset date is always carried as \code{onset}; for a time-varying
-CFR derive a time term from it (e.g. \code{week}) and pass \code{cfr ~ s(week)}.}
+CFR derive a time term from it (e.g. \code{week}) and pass \code{prob ~ s(week)}.}
 
 \item{t0}{Optional time origin (\code{Date}). Defaults to
 \code{min(onset) - max_delay}.}

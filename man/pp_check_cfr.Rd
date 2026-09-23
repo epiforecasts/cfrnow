@@ -26,7 +26,7 @@ two-outcome fit), and the distribution of the observed onset-to-death delays.
 }
 \details{
 The check reuses the fit's own posterior draws of the CFR and the delay, so
-it works for covariate and time-varying \code{cfr ~ ...} fits as well as
+it works for covariate and time-varying \code{prob ~ ...} fits as well as
 intercept-only ones. It needs the observation cut-off, which \code{\link[=fit_cfr]{fit_cfr()}}
 records when the data come from \code{\link[=prepare_cfr_data]{prepare_cfr_data()}}; a retrospective fit
 (\code{obs_time = NULL}) has no truncation to replay, so every fatal case shows up
@@ -50,8 +50,8 @@ pp_check_cfr(fit, type = "delay")
 }
 }
 \seealso{
-Other fit: 
-\code{\link{fit_cfr}()},
-\code{\link{summary.cfrnow_fit}()}
+Other fit:
+\code{\link[=fit_cfr]{fit_cfr()}},
+\code{\link[=summary.cfrnow_fit]{summary.cfrnow_fit()}}
 }
 \concept{fit}

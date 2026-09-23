@@ -43,9 +43,9 @@ naive_cfr <- function(n_deaths, n_cases) {
   stats::plogis(logit_cfr - log(ascertainment_ratio))
 }
 
-# Does the cfr sub-formula carry predictors beyond an intercept?
-.cfr_is_grouped <- function(object) {
-  cf <- object$formula$pforms$cfr
+# Does the prob sub-formula carry predictors beyond an intercept?
+.prob_is_grouped <- function(object) {
+  cf <- object$formula$pforms$prob
   if (is.null(cf)) {
     return(FALSE)
   }
@@ -53,12 +53,12 @@ naive_cfr <- function(n_deaths, n_cases) {
   length(attr(tt, "term.labels")) > 0L || attr(tt, "intercept") == 0L
 }
 
-# Per-group CFR draws for a `cfr ~ group` fit: one column per distinct
-# combination of the (factor/character) cfr predictors, labelled by it. Predicts
-# the cfr dpar on the fitted rows (parameterisation-agnostic, includes any
-# group-level effects), then applies the ascertainment shift.
-.cfr_group_draws <- function(object, ascertainment_ratio) {
-  vars <- setdiff(all.vars(object$formula$pforms$cfr), "cfr")
+# Per-group prob draws for a `prob ~ group` fit: one column per distinct
+# combination of the (factor/character) prob predictors, labelled by it.
+# Predicts the prob dpar on the fitted rows (parameterisation-agnostic,
+# includes any group-level effects), then applies the ascertainment shift.
+.prob_group_draws <- function(object, ascertainment_ratio) {
+  vars <- setdiff(all.vars(object$formula$pforms$prob), "prob")
   dat <- object$data
   discrete <- all(vapply(
     dat[vars],
@@ -66,28 +66,28 @@ naive_cfr <- function(n_deaths, n_cases) {
     logical(1)
   ))
   if (!discrete) {
-    stop("summary() reports per-group CFRs for factor or character `cfr` ",
+    stop("summary() reports per-group CFRs for factor or character `prob` ",
       "predictors; for a continuous predictor use brms::posterior_epred() ",
       "with a newdata grid.",
       call. = FALSE
     )
   }
-  ep <- brms::posterior_epred(object, dpar = "cfr")
+  ep <- brms::posterior_epred(object, dpar = "prob")
   ep <- stats::plogis(stats::qlogis(ep) - log(ascertainment_ratio))
   key <- interaction(dat[vars], drop = TRUE, sep = ".")
   reps <- which(!duplicated(key))
   labs <- as.character(key)[reps]
   o <- order(labs)
   mat <- ep[, reps[o], drop = FALSE]
-  colnames(mat) <- paste0("cfr[", labs[o], "]")
+  colnames(mat) <- paste0("prob[", labs[o], "]")
   mat
 }
 
 .cfr_quantities <- function(object, ascertainment_ratio = 1) {
   dr <- posterior::as_draws_df(object)
-  grouped <- .cfr_is_grouped(object)
-  if (!grouped && !"b_cfr_Intercept" %in% posterior::variables(dr)) {
-    stop("summary() needs an intercept-only or `cfr ~ group` fit.",
+  grouped <- .prob_is_grouped(object)
+  if (!grouped && !"b_prob_Intercept" %in% posterior::variables(dr)) {
+    stop("summary() needs an intercept-only or `prob ~ group` fit.",
       call. = FALSE
     )
   }
@@ -99,12 +99,15 @@ naive_cfr <- function(n_deaths, n_cases) {
   )
   res <- if (grouped) {
     as.data.frame(
-      .cfr_group_draws(object, ascertainment_ratio),
+      .prob_group_draws(object, ascertainment_ratio),
       check.names = FALSE
     )
   } else {
     data.frame(
-      cfr = .ascertainment_adjust(dr[["b_cfr_Intercept"]], ascertainment_ratio)
+      prob = .ascertainment_adjust(
+        dr[["b_prob_Intercept"]],
+        ascertainment_ratio
+      )
     )
   }
   res$delay_mean <- d$mean
@@ -140,9 +143,9 @@ naive_cfr <- function(n_deaths, n_cases) {
 #' the `cfr_low_information` attribute: `TRUE` when the CFR posterior sd exceeds
 #' `info_tol` times the prior sd.
 #'
-#' For a `cfr ~ group` fit the CFR varies by group, so one `cfr[<group>]` row is
-#' reported per group (grouping predictors must be factors or characters), and
-#' the `cfr_low_information` flag is `NA` (only defined for a single CFR).
+#' For a `prob ~ group` fit the CFR varies by group, so one `prob[<group>]` row
+#' is reported per group (grouping predictors must be factors or characters),
+#' and the `cfr_low_information` flag is `NA` (only defined for a single CFR).
 #'
 #' The CFR the model fits is the fatality risk among *ascertained* cases. When
 #' ascertainment is outcome-dependent -- fatal and non-fatal cases entering the
@@ -163,9 +166,9 @@ naive_cfr <- function(n_deaths, n_cases) {
 #'   fatal to non-fatal cases (see Details). A single positive number; defaults
 #'   to 1 (no correction).
 #' @param ... Unused.
-#' @return A data frame with one row per quantity: `cfr` (or one `cfr[<group>]`
-#'   row per group for a `cfr ~ group` fit), `delay_mean` and `delay_sd`,
-#'   carrying `naive_cfr`, `n_cases`, `n_deaths`, `cfr_prior_sd`,
+#' @return A data frame with one row per quantity: `prob` (or one
+#'   `prob[<group>]` row per group for a `prob ~ group` fit), `delay_mean` and
+#'   `delay_sd`, carrying `naive_cfr`, `n_cases`, `n_deaths`, `cfr_prior_sd`,
 #'   `cfr_low_information` and `ascertainment_ratio` attributes.
 #' @family fit
 #' @export
@@ -196,14 +199,14 @@ summary.cfrnow_fit <- function(object, probs = c(0.025, 0.5, 0.975),
   # Weak identification is a single-CFR diagnostic: undo the shift and measure
   # the CFR spread on the fitted (r = 1) scale against the r = 1 prior sd.
   # It is not defined for a grouped fit, where the CFR varies by group.
-  prior_sd <- object$cfrnow$cfr_prior_sd
+  prior_sd <- object$cfrnow$prob_prior_sd
   low_info <- NA
-  if ("cfr" %in% posterior::variables(qs)) {
-    cfr_obs <- stats::plogis(
-      stats::qlogis(posterior::extract_variable(qs, "cfr")) +
+  if ("prob" %in% posterior::variables(qs)) {
+    prob_obs <- stats::plogis(
+      stats::qlogis(posterior::extract_variable(qs, "prob")) +
         log(ascertainment_ratio)
     )
-    low_info <- !is.na(prior_sd) && stats::sd(cfr_obs) > info_tol * prior_sd
+    low_info <- !is.na(prior_sd) && stats::sd(prob_obs) > info_tol * prior_sd
   }
   attr(out, "naive_cfr") <- naive_cfr(
     object$cfrnow$n_deaths,

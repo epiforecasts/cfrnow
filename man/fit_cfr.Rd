@@ -7,10 +7,11 @@
 fit_cfr(
   data,
   delay = LogNormal(meanlog = Normal(2, 1), sdlog = Normal(0.5, 0.3)),
-  cfr_prior = Beta(1, 1),
+  prob_prior = Beta(1, 1),
   recovery_delay = NULL,
   formula = mu ~ 1,
-  ...
+  ...,
+  cfr_prior = lifecycle::deprecated()
 )
 }
 \arguments{
@@ -21,45 +22,54 @@ data frame with \code{y}, \code{outcome}, \code{pwindow}, \code{swindow}.}
 (\code{\link[distspec:LogNormal]{distspec::LogNormal()}}, \code{\link[distspec:Gamma]{distspec::Gamma()}} or \code{\link[distspec:Weibull]{distspec::Weibull()}})
 whose native parameters are fixed numbers or \code{Normal()} priors.}
 
-\item{cfr_prior}{CFR prior as a \code{\link[distspec:Beta]{distspec::Beta()}}. Defaults to \code{Beta(1, 1)}.}
+\item{prob_prior}{Prior on \code{prob} as a \code{\link[distspec:Beta]{distspec::Beta()}}. Defaults to
+\code{Beta(1, 1)}.}
 
 \item{recovery_delay}{Optional onset-to-recovery delay (same form as \code{delay})
 for the two-outcome fit; may use a different family from \code{delay}.}
 
 \item{formula}{A \code{brms} formula for the delay location \code{mu} and, optionally,
-the CFR (\code{cfr ~ ...}). Defaults to \code{mu ~ 1}. The \code{cfr_prior} normally lands
-on the CFR intercept; when the CFR formula drops the intercept (e.g.
-\code{cfr ~ 0 + group}, one logit-CFR per group) it is placed on those
-coefficients instead. It then applies to every \code{cfr} coefficient, so an
-intercept-free formula should carry only factor terms.}
+\code{prob} (\code{prob ~ ...}). Defaults to \code{mu ~ 1}. \code{prob_prior} normally lands on
+the \code{prob} intercept; when the \code{prob} formula drops the intercept (e.g.
+\code{prob ~ 0 + group}, one logit-probability per group) it is placed on those
+coefficients instead. It then applies to every \code{prob} coefficient, so an
+intercept-free formula should carry only factor terms. A \code{cfr ~ ...}
+sub-formula is still accepted and translated to \code{prob ~ ...} with a
+deprecation warning.}
 
 \item{...}{Passed to \code{\link[epidist:epidist]{epidist::epidist()}} and on to \code{\link[brms:brm]{brms::brm()}}
 (e.g. \code{chains}, \code{iter}, \code{backend}, \code{seed}).}
+
+\item{cfr_prior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{prob_prior} instead.}
 }
 \value{
-A \code{brmsfit} with class \code{cfrnow_fit}; summarise with \code{\link[cmdstanr:fit-method-summary]{cmdstanr::summary()}}.
+A \code{brmsfit} with class \code{cfrnow_fit}; summarise with \code{\link[=summary]{summary()}}.
 }
 \description{
 Estimates a real-time case fatality ratio from line-list data. Each case is
-fatal with probability \code{cfr} and, when fatal, dies at an onset-to-death
+fatal with probability \code{prob} and, when fatal, dies at an onset-to-death
 \code{delay}; cases still alive at the cut-off are right-censored, correcting the
-downward bias of the naive deaths / cases ratio. The delay and the CFR prior
-are given as \pkg{distspec} distributions.
+downward bias of the naive deaths / cases ratio. The delay and the \code{prob}
+prior are given as \pkg{distspec} distributions.
 }
 \details{
 The delay's native parameters may each be a fixed number (held fixed; fixing
 the whole delay gives the Ghani/Nishiura estimator) or a \code{Normal()} prior
 (co-estimated). The family (\code{LogNormal()}, \code{Gamma()} or \code{Weibull()}) sets the
-delay distribution. \code{cfr_prior} is a \code{Beta()}; it matters because the CFR is
-weakly
-identified early on (\code{Beta(1, 1)} is uniform, \code{Beta(1, 9)} favours a low CFR,
-\code{Beta(6.6, 13.4)} suits a high-fatality pathogen).
+delay distribution. \code{prob_prior} is a \code{Beta()}; it matters because \code{prob} is
+weakly identified early on (\code{Beta(1, 1)} is uniform, \code{Beta(1, 9)} favours a
+low probability, \code{Beta(6.6, 13.4)} suits a high-fatality pathogen).
 
 The model is fitted through \code{\link[epidist:epidist]{epidist::epidist()}}, so covariates (or a smooth
-time effect) can be put on the CFR or the delay through \code{formula}, e.g.
-\code{formula = brms::bf(mu ~ 1, cfr ~ age)}. When the line list carries recovery
+time effect) can be put on \code{prob} or the delay through \code{formula}, e.g.
+\code{formula = brms::bf(mu ~ 1, prob ~ age)}. When the line list carries recovery
 dates, pass a \code{recovery_delay} to fit the two-outcome model that also times
 recoveries.
+
+\code{prob} is a case fatality ratio when the line list runs from onset to death,
+as \code{\link[=prepare_cfr_data]{prepare_cfr_data()}} expects; fed a line list with a different outcome
+(e.g. hospitalisation), the same model fits that outcome's probability
+instead.
 }
 \examples{
 \dontrun{
@@ -68,18 +78,18 @@ d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
 otd <- LogNormal(meanlog = Normal(2.41, 0.2), sdlog = Normal(0.51, 0.15))
 
 # co-estimated delay
-fit <- fit_cfr(d, delay = otd, cfr_prior = Beta(1, 1), backend = "cmdstanr")
+fit <- fit_cfr(d, delay = otd, prob_prior = Beta(1, 1), backend = "cmdstanr")
 summary(fit)
 
-# fixed delay (Ghani/Nishiura), a gamma family, and a CFR covariate
+# fixed delay (Ghani/Nishiura), a gamma family, and a prob covariate
 fit_cfr(d, delay = LogNormal(meanlog = 2.41, sdlog = 0.51))
 fit_cfr(d, delay = Gamma(shape = Normal(3.3, 1), rate = Normal(0.26, 0.08)))
-fit_cfr(d, delay = otd, formula = brms::bf(mu ~ 1, cfr ~ group))
+fit_cfr(d, delay = otd, formula = brms::bf(mu ~ 1, prob ~ group))
 }
 }
 \seealso{
-Other fit: 
-\code{\link{pp_check_cfr}()},
-\code{\link{summary.cfrnow_fit}()}
+Other fit:
+\code{\link[=pp_check_cfr]{pp_check_cfr()}},
+\code{\link[=summary.cfrnow_fit]{summary.cfrnow_fit()}}
 }
 \concept{fit}
