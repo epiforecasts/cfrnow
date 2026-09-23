@@ -22,7 +22,9 @@ optional
 \code{recovery_date} column (\code{NA} unless the case is a recorded non-fatal
 recovery). Dates may be \code{Date} or coercible.}
 
-\item{obs_time}{Real-time cut-off (\code{Date} or coercible), or \code{NULL} for a
+\item{obs_time}{Real-time cut-off: one \code{Date} (or coercible), one per row of
+\code{linelist}, or the name of a \code{linelist} column holding them, for data that
+reaches the analyst at different times by site. \code{NULL} gives a
 retrospective fit in which every recorded death counts and survivors are
 treated as fully resolved. In real time, a case with a recovery on or
 before \code{obs_time} is resolved; one still alive and unresolved is
@@ -59,8 +61,8 @@ A \code{cfrnow_data} list with the aggregated model inputs (\code{n_death},
 \code{recovery_width}, \code{n_cens}, \code{censor_time}, \code{censor_width}, \code{n_resolved},
 \code{n_cases}, \code{n_deaths}, \code{n_recoveries}, \code{t0}, \code{obs_time}) and a \code{cases}
 data frame with one row per kept case (\code{y}, \code{outcome}, \code{pwindow},
-\code{swindow}, \code{onset}, \code{follow_up} (days watched, \code{Inf} in a retrospective
-fit) and any requested \code{covariates}), which
+\code{swindow}, \code{onset}, that case's \code{obs_time}, \code{follow_up} (days watched,
+\code{Inf} in a retrospective fit) and any requested \code{covariates}), which
 \code{\link[=as_epidist_cure_model]{as_epidist_cure_model()}} turns into the model frame.
 }
 \description{

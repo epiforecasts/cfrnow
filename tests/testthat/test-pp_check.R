@@ -131,8 +131,8 @@ test_that("pp_check_cfr returns ggplots and reproduces the death count", {
     refresh = 0, seed = 1
   )
 
-  # the cut-off is recorded so the check can replay the real-time truncation
-  expect_false(is.na(fit$cfrnow$obs_time))
+  # each case's cut-off is recorded so the check can replay the truncation
+  expect_false(anyNA(fit$cfrnow$obs_time))
   expect_s3_class(pp_check_cfr(fit, "counts", ndraws = 50), "ggplot")
   expect_s3_class(pp_check_cfr(fit, "delay", ndraws = 50), "ggplot")
 
