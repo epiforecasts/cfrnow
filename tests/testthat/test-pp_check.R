@@ -102,3 +102,31 @@ test_that("pp_check_cfr returns ggplots and reproduces the death count", {
   expect_gte(obs, stats::quantile(pd, 0.01))
   expect_lte(obs, stats::quantile(pd, 0.99))
 })
+
+test_that("pp_check_cfr works when a formula covariate has missing values", {
+  testthat::skip_if_not_installed("cmdstanr")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if(
+    is.null(tryCatch(cmdstanr::cmdstan_version(), error = function(e) NULL)),
+    "cmdstan not installed"
+  )
+
+  set.seed(30)
+  ll <- simulate_linelist(n = 200, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+  ll$age_group <- sample(c("young", "old"), nrow(ll), replace = TRUE)
+  ll$age_group[c(5, 40)] <- NA
+  d <- prepare_cfr_data(ll,
+    obs_time = max(ll$onset_date) - 5, covariates = "age_group"
+  )
+
+  # brms drops the NA-covariate rows during fitting; pp_check_cfr() must still
+  # be able to replay the real-time truncation on the rows it kept
+  fit <- suppressWarnings(fit_cfr(d,
+    delay = LogNormal(meanlog = Normal(2.4, 0.2), sdlog = Normal(0.5, 0.15)),
+    formula = brms::bf(mu ~ 1, cfr ~ age_group),
+    backend = "cmdstanr", chains = 1, iter = 400, warmup = 200,
+    refresh = 0, seed = 1
+  ))
+
+  expect_s3_class(pp_check_cfr(fit, "counts", ndraws = 50), "ggplot")
+})
