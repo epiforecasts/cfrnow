@@ -22,12 +22,16 @@ real cfrnow_<<family>>_lpmf(data int y, <<death_pars>>, real prob,
   } else if (outcome == 3) {
     return log1m(prob);
   } else {
-    real fbar_d = primarycensored_cdf(
+    // On the log scale: either cdf can round to (just above) 1 for a long
+    // follow-up, where log1m() would reject the draw. The floor keeps such a
+    // case very unlikely instead of impossible, so the sampler can move.
+    real log_surv_d = log1m_exp(fmin(primarycensored_lcdf(
         y | <<death_id>>, {<<death_reparam>>}, pwindow, 0.0,
-        <<death_upper>>, <<primary_id>>, primary_params);
-    real fbar_r = primarycensored_cdf(
+        <<death_upper>>, <<primary_id>>, primary_params), -1e-12));
+    real log_surv_r = log1m_exp(fmin(primarycensored_lcdf(
         y | <<recovery_id>>, {<<recovery_reparam>>}, pwindow, 0.0,
-        <<recovery_upper>>, <<primary_id>>, primary_params);
-    return log_sum_exp(log(prob) + log1m(fbar_d), log1m(prob) + log1m(fbar_r));
+        <<recovery_upper>>, <<primary_id>>, primary_params), -1e-12));
+    return log_sum_exp(
+        log(prob) + log_surv_d, log1m(prob) + log_surv_r);
   }
 }

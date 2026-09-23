@@ -1,5 +1,11 @@
 # cfrnow (development version)
 
+* The survival term for an unresolved case is computed on the log scale
+  (`primarycensored_lcdf()` and `log1m_exp()`). A case followed up for much
+  longer than the delay rounds the CDF to 1, where the previous `log1m()` form
+  rejected every draw with `log1m: x is 1, but must be less than or equal to
+  1`, leaving the chains stuck at their starting values.
+
 * A delay's `max` is now honoured: `fit_cfr()` truncates the fitted delay at
   the bound (`LogNormal(..., max = 30)`), `simulate_linelist()` draws from the
   truncated delay, and `pp_check_cfr()` replicates from it. Previously the bound
