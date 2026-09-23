@@ -97,8 +97,9 @@
   )
 }
 
-# A distspec delay -> list(family, prior). `main = TRUE` targets the death delay
-# (mu is the main dpar); `main = FALSE` the recovery delay (r-prefixed dpars).
+# A distspec delay -> list(family, prior, max). `main = TRUE` targets the death
+# delay (mu is the main dpar); `main = FALSE` the recovery delay (r-prefixed
+# dpars). `max` is the delay's upper bound, Inf when it has none.
 .delay_family_prior <- function(delay, main = TRUE) {
   if (!inherits(delay, "dist_spec")) {
     stop("`delay` must be a distspec distribution, ",
@@ -141,7 +142,24 @@
       call. = FALSE
     )
   }
+  out$max <- .delay_max(delay)
   out
+}
+
+# The upper bound of a distspec delay, as a positive whole number of days, or
+# Inf when the delay is unbounded. The bound is the longest delay the model can
+# produce, so the likelihood truncates the delay distribution there.
+.delay_max <- function(delay) {
+  # read the bound off the object: max() on a delay with priors resolves the
+  # same value but messages about the uncertain parameters on the way
+  mx <- attr(delay, "max")
+  if (is.null(mx) || length(mx) != 1 || is.na(mx) || is.infinite(mx)) {
+    return(Inf)
+  }
+  if (mx <= 0) {
+    stop("a delay's `max` must be a positive number of days.", call. = FALSE)
+  }
+  mx
 }
 
 # A Normal(m, s) on logit(prob) whose induced mean/sd on the [0, 1] scale match
