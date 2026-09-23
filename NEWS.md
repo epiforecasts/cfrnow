@@ -1,5 +1,9 @@
 # cfrnow (development version)
 
+* `pp_check_cfr()` now draws replicate delays from a Weibull fit's own
+  distribution; it previously drew them from a gamma, so the checks for a
+  Weibull delay compared the fit against the wrong replicates.
+
 * The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
   is a case fatality ratio only when the line list runs from onset to death; the
   same model can fit a hospital fatality ratio or other outcome probability for a
