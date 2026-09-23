@@ -20,7 +20,9 @@ data frame with \code{y}, \code{outcome}, \code{pwindow}, \code{swindow}.}
 
 \item{delay}{Onset-to-death delay as a \pkg{distspec} distribution
 (\code{\link[distspec:LogNormal]{distspec::LogNormal()}}, \code{\link[distspec:Gamma]{distspec::Gamma()}} or \code{\link[distspec:Weibull]{distspec::Weibull()}})
-whose native parameters are fixed numbers or \code{Normal()} priors.}
+whose native parameters are fixed numbers or \code{Normal()} priors. A \code{max}
+(e.g. \code{LogNormal(Normal(2.4, 0.2), Normal(0.5, 0.15), max = 30)}) truncates
+the delay there, so the model gives no probability to a longer delay.}
 
 \item{prob_prior}{Prior on \code{prob} as a \code{\link[distspec:Beta]{distspec::Beta()}}. Defaults to
 \code{Beta(1, 1)}.}
@@ -59,6 +61,13 @@ the whole delay gives the Ghani/Nishiura estimator) or a \code{Normal()} prior
 delay distribution. \code{prob_prior} is a \code{Beta()}; it matters because \code{prob} is
 weakly identified early on (\code{Beta(1, 1)} is uniform, \code{Beta(1, 9)} favours a
 low probability, \code{Beta(6.6, 13.4)} suits a high-fatality pathogen).
+
+A delay's \code{max} truncates it: the likelihood renormalises the distribution
+over \verb{[0, max]} days. The estimated parameters still describe the untruncated
+family, which is what \code{summary()} reports as \code{delay_mean} and \code{delay_sd}. A
+recorded delay past the bound, or a case unresolved for longer than every
+bound that could still apply to it, has zero probability under such a model,
+so \code{fit_cfr()} stops rather than letting the sampler fail.
 
 The model is fitted through \code{\link[epidist:epidist]{epidist::epidist()}}, so covariates (or a smooth
 time effect) can be put on \code{prob} or the delay through \code{formula}, e.g.

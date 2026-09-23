@@ -13,6 +13,13 @@
 #' weakly identified early on (`Beta(1, 1)` is uniform, `Beta(1, 9)` favours a
 #' low probability, `Beta(6.6, 13.4)` suits a high-fatality pathogen).
 #'
+#' A delay's `max` truncates it: the likelihood renormalises the distribution
+#' over `[0, max]` days. The estimated parameters still describe the untruncated
+#' family, which is what `summary()` reports as `delay_mean` and `delay_sd`. A
+#' recorded delay past the bound, or a case unresolved for longer than every
+#' bound that could still apply to it, has zero probability under such a model,
+#' so `fit_cfr()` stops rather than letting the sampler fail.
+#'
 #' The model is fitted through [epidist::epidist()], so covariates (or a smooth
 #' time effect) can be put on `prob` or the delay through `formula`, e.g.
 #' `formula = brms::bf(mu ~ 1, prob ~ age)`. When the line list carries recovery
@@ -28,7 +35,9 @@
 #'   data frame with `y`, `outcome`, `pwindow`, `swindow`.
 #' @param delay Onset-to-death delay as a \pkg{distspec} distribution
 #'   ([distspec::LogNormal()], [distspec::Gamma()] or [distspec::Weibull()])
-#'   whose native parameters are fixed numbers or `Normal()` priors.
+#'   whose native parameters are fixed numbers or `Normal()` priors. A `max`
+#'   (e.g. `LogNormal(Normal(2.4, 0.2), Normal(0.5, 0.15), max = 30)`) truncates
+#'   the delay there, so the model gives no probability to a longer delay.
 #' @param prob_prior Prior on `prob` as a [distspec::Beta()]. Defaults to
 #'   `Beta(1, 1)`.
 #' @param recovery_delay Optional onset-to-recovery delay (same form as `delay`)
@@ -88,6 +97,7 @@ fit_cfr <- function(data,
   cure <- as_epidist_cure_model(data)
   dd <- .delay_family_prior(delay, main = TRUE)
   dfam <- dd$family
+  attr(cure, "delay_max") <- dd$max
   prob_class <- if (.prob_has_intercept(formula)) "Intercept" else "b"
   prior <- c(.prob_prior_to_brms(prob_prior, prob_class), dd$prior)
   rfam <- dfam
@@ -101,9 +111,11 @@ fit_cfr <- function(data,
       rfam <- rd$family
       prior <- c(prior, rd$prior)
       attr(cure, "recovery_family") <- brms:::validate_family(rfam) # nolint
+      attr(cure, "recovery_max") <- rd$max
     }
   }
   use_recovery <- isTRUE(attr(cure, "use_recovery"))
+  .assert_within_max(cure, dd$max, if (use_recovery) attr(cure, "recovery_max"))
   fit <- epidist::epidist(cure,
     formula = formula, family = dfam,
     prior = prior, merge_priors = FALSE, ...
@@ -132,6 +144,8 @@ fit_cfr <- function(data,
       NA_character_
     },
     prob_prior_sd = .prob_prior_sd(prior),
+    delay_max = dd$max,
+    recovery_max = if (use_recovery) attr(cure, "recovery_max") else Inf,
     obs_time = obs_time,
     onset = if ("onset" %in% names(cure)) cure$onset[used_rows] else NULL
   )
@@ -161,4 +175,55 @@ fit_cfr <- function(data,
   }
   draws <- stats::rnorm(1e5, as.numeric(m[2]), as.numeric(m[3]))
   stats::sd(stats::plogis(draws))
+}
+
+#' Check the data against the delays' upper bounds
+#'
+#' A bounded delay gives zero probability to anything longer than its `max`, so
+#' a recorded delay past the bound, or a case still unresolved past every bound
+#' that applies to it, cannot have come from the model and would make the fit
+#' fail inside Stan. Stop with a message naming the cases instead.
+#' @param cure An `epidist_cure_model`.
+#' @param delay_max,recovery_max Upper bounds of the death and recovery delays;
+#'   `Inf` (or `NULL`) when unbounded.
+#' @return `TRUE`, invisibly.
+#' @noRd
+.assert_within_max <- function(cure, delay_max, recovery_max = NULL) {
+  recovery_max <- recovery_max %||% Inf
+  too_long <- function(code, mx) {
+    sum(cure$outcome == code & cure$y > mx)
+  }
+  n_death <- too_long(.CURE_DEATH, delay_max)
+  if (n_death > 0) {
+    stop(n_death, " death(s) with an onset-to-death delay longer than the ",
+      "delay's max (", delay_max, " days). Raise the max, or drop those ",
+      "records as data errors.",
+      call. = FALSE
+    )
+  }
+  n_recovery <- too_long(.CURE_RECOVERY, recovery_max)
+  if (n_recovery > 0) {
+    stop(n_recovery, " recovery(ies) with an onset-to-recovery delay longer ",
+      "than the recovery delay's max (", recovery_max, " days). Raise the ",
+      "max, or drop those records as data errors.",
+      call. = FALSE
+    )
+  }
+  # A censored case must still be able to resolve: it needs at least one of the
+  # outcomes it could still have to remain possible beyond its follow-up.
+  unresolved_max <- if (isTRUE(attr(cure, "use_recovery"))) {
+    max(delay_max, recovery_max)
+  } else {
+    # death-only: an unresolved case may always be a survivor
+    Inf
+  }
+  n_cens <- sum(cure$outcome == .CURE_CENSORED & cure$y > unresolved_max)
+  if (n_cens > 0) {
+    stop(n_cens, " case(s) still unresolved after longer than the delays' ",
+      "max (", unresolved_max, " days), which the model gives zero ",
+      "probability. Drop them, or record them as resolved non-deaths.",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
 }

@@ -68,7 +68,9 @@ simulate_linelist <- function(n = 200, cfr = 0.5, delay, recovery = NULL,
 #' Draw delays from a distspec distribution with fixed parameters
 #'
 #' Used by [simulate_linelist()] for the onset-to-death and onset-to-recovery
-#' delays. Errors if any parameter is a prior rather than a fixed number.
+#' delays. A delay with a `max` is drawn from its truncated form, matching the
+#' likelihood [fit_cfr()] uses for a bounded delay. Errors if any parameter is
+#' a prior rather than a fixed number.
 #' @param n Number of delays to draw.
 #' @param delay A distspec delay distribution with fixed parameters.
 #' @return A numeric vector of `n` delays (days).
@@ -82,19 +84,27 @@ sample_delay <- function(n, delay) {
       call. = FALSE
     )
   }
-  out <- switch(fam,
-    lognormal = stats::rlnorm(n, pars[["meanlog"]], pars[["sdlog"]]),
-    gamma = stats::rgamma(n, shape = pars[["shape"]], rate = pars[["rate"]]),
-    weibull = stats::rweibull(
-      n,
-      shape = pars[["shape"]], scale = pars[["scale"]]
+  d <- switch(fam,
+    lognormal = list(
+      q = stats::qlnorm, p = stats::plnorm,
+      a = pars[["meanlog"]], b = pars[["sdlog"]]
+    ),
+    gamma = list(
+      q = stats::qgamma, p = stats::pgamma,
+      a = pars[["shape"]], b = pars[["rate"]]
+    ),
+    weibull = list(
+      q = stats::qweibull, p = stats::pweibull,
+      a = pars[["shape"]], b = pars[["scale"]]
     )
   )
-  if (is.null(out)) {
+  if (is.null(d)) {
     stop("simulate_linelist() supports LogNormal(), Gamma() and Weibull() ",
       "delays only.",
       call. = FALSE
     )
   }
-  out
+  delay_max <- .delay_max(delay)
+  upper <- if (is.infinite(delay_max)) 1 else d$p(delay_max, d$a, d$b)
+  d$q(stats::runif(n, 0, upper), d$a, d$b)
 }

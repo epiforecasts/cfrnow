@@ -160,7 +160,18 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
 # Template holes for the recovery half of a two-outcome fit: its own family's
 # parameter declarations, distribution id, and native reparameterisation
 # (r-prefixed to match the recovery dpars rmu, rsigma / rshape).
-.recovery_holes <- function(family, recovery_family, recovery_dpars) {
+# A delay's upper truncation as Stan code. A bounded delay truncates at
+# `max + 1` so a recorded delay of `max` days, whose secondary window closes a
+# day later, is still inside the support.
+.stan_upper <- function(delay_max) {
+  if (is.null(delay_max) || is.infinite(delay_max)) {
+    return("positive_infinity()")
+  }
+  sprintf("%.8f", delay_max + 1)
+}
+
+.recovery_holes <- function(family, recovery_family, recovery_dpars,
+                            recovery_max) {
   rfam <- recovery_family %||% family
   reparam <- .family_stan_param(rfam$family)
   for (dp in rfam$dpars) {
@@ -170,7 +181,8 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
   list(
     recovery_pars = toString(paste0("real ", recovery_dpars)),
     recovery_id = rid,
-    recovery_reparam = reparam
+    recovery_reparam = reparam,
+    recovery_upper = .stan_upper(recovery_max)
   )
 }
 
@@ -187,14 +199,15 @@ epidist_stancode.epidist_cure_model <- function(data, family, formula, ...) {
     death_pars = toString(paste0("real ", delay_dpars)),
     death_id = primarycensored::pcd_stan_dist_id(family_name, type = "delay"),
     death_reparam = family$param,
-    primary_id = primarycensored::pcd_stan_dist_id("uniform", type = "primary")
+    primary_id = primarycensored::pcd_stan_dist_id("uniform", type = "primary"),
+    death_upper = .stan_upper(attr(data, "delay_max"))
   )
   template <- "cure_lpmf_death.stan"
   if (use_recovery) {
     recovery_dpars <- family$dpars[(prob_pos + 1):length(family$dpars)]
     holes <- c(holes, .recovery_holes(
       family, attr(data, "recovery_family"),
-      recovery_dpars
+      recovery_dpars, attr(data, "recovery_max")
     ))
     template <- "cure_lpmf_two_outcome.stan"
   }
