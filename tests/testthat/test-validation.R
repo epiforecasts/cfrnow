@@ -111,3 +111,23 @@ test_that(".assert_within_max rejects data outside a bounded delay", {
   attr(cure, "use_recovery") <- FALSE
   expect_true(.assert_within_max(cure, 60, NULL))
 })
+
+test_that(".assert_loss_identified needs unresolved cases", {
+  resolved <- as_epidist_cure_model(data.frame(
+    y = c(5L, 0L), outcome = c(.CURE_DEATH, .CURE_RESOLVED),
+    pwindow = 1, swindow = 1
+  ))
+  expect_error(
+    .assert_loss_identified(resolved, use_recovery = TRUE), "still unresolved"
+  )
+
+  censored <- as_epidist_cure_model(data.frame(
+    y = c(5L, 20L), outcome = c(.CURE_DEATH, .CURE_CENSORED),
+    pwindow = 1, swindow = 1
+  ))
+  expect_true(.assert_loss_identified(censored, use_recovery = TRUE))
+  expect_warning(
+    .assert_loss_identified(censored, use_recovery = FALSE),
+    "weakly identified"
+  )
+})

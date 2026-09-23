@@ -159,3 +159,21 @@ test_that("survival terms are computed on the log scale", {
   expect_true(grepl("primarycensored_lcdf", code, fixed = TRUE))
   expect_false(grepl("log1m(fbar", code, fixed = TRUE))
 })
+
+test_that("a loss_prior adds the loss parameter and mixture to the lpmf", {
+  cure <- as_epidist_cure_model(prepare_cfr_data(
+    simulate_linelist(n = 100, cfr = 0.4, delay = LogNormal(2.4, 0.5)),
+    obs_time = as.Date("2026-02-01")
+  ))
+  plain <- stancode_for(cure, LogNormal(meanlog = 2.41, sdlog = 0.51))
+  expect_false(grepl("real loss", plain, fixed = TRUE))
+
+  attr(cure, "use_loss") <- TRUE
+  with_loss <- stancode_for(cure, LogNormal(meanlog = 2.41, sdlog = 0.51))
+  expect_true(grepl("real loss,", with_loss, fixed = TRUE))
+  # a recorded outcome also says the case was not lost
+  expect_true(grepl("log1m(loss) + log(prob)", with_loss, fixed = TRUE))
+  # an unresolved case is either lost or genuinely unresolved
+  expect_true(grepl("log_sum_exp(log(loss),", with_loss, fixed = TRUE))
+})
+

@@ -174,3 +174,32 @@ test_that("a bounded delay simulates the recorded delays the model fits", {
   )
   expect_lt(sum(abs(empirical - model)) / 2, 0.004)
 })
+
+test_that("last_contact_date censors a case where its follow-up stops", {
+  ll <- data.frame(
+    onset_date = as.Date("2026-01-01") + c(0, 0, 0, 0),
+    death_date = as.Date(c("2026-01-10", NA, NA, NA)),
+    recovery_date = as.Date(c(NA, "2026-01-08", NA, NA)),
+    seen = as.Date(c(NA, NA, "2026-01-05", NA))
+  )
+  d <- prepare_cfr_data(ll,
+    obs_time = as.Date("2026-01-31"), last_contact_date = "seen"
+  )
+  # case 3 stops being observed on the 5th, case 4 runs to the cut-off
+  expect_equal(d$cases$outcome, c(1, 2, 0, 0))
+  expect_identical(d$cases$y[3:4], c(5L, 31L))
+
+  # a retrospective fit resolves the untimed non-deaths but still censors a
+  # case that stopped being followed
+  r <- prepare_cfr_data(ll, obs_time = NULL, last_contact_date = "seen")
+  expect_equal(r$cases$outcome, c(1, 2, 0, 3))
+  expect_identical(r$cases$y[3], 5L)
+  expect_identical(r$n_resolved, 1L)
+
+  expect_error(
+    prepare_cfr_data(ll, obs_time = as.Date("2026-01-31"),
+      last_contact_date = "nope"
+    ),
+    "not a column"
+  )
+})

@@ -3,10 +3,12 @@
 # be tested directly: `cfr`, `loc` and `sc` (and their recovery counterparts)
 # are ndraws-by-n matrices of per-draw, per-case parameters on the response
 # scale, `h` is the per-case follow-up horizon, `mx` and `rmx` are the delays'
-# upper bounds (Inf when unbounded), and `observed` holds the observed death
-# and recovery counts and the observed death delays.
+# upper bounds (Inf when unbounded), `loss` is the per-draw, per-case
+# probability of being lost to follow-up (NULL when the fit has none), and
+# `observed` holds the observed death and recovery counts and the observed
+# death delays.
 .cfr_ppc_stats <- function(cfr, loc, sc, h, fam, use_rec, rloc, rsc, rfam,
-                           observed, mx = Inf, rmx = Inf) {
+                           observed, mx = Inf, rmx = Inf, loss = NULL) {
   nd <- nrow(cfr)
   n <- ncol(cfr)
   # Each family's draws come from its brms mu-form: mu is the delay's mean and
@@ -39,8 +41,10 @@
   delays <- vector("list", nd)
   for (k in seq_len(nd)) {
     fatal <- stats::runif(n) < cfr[k, ]
+    # a case lost to follow-up has no outcome recorded, whatever happens to it
+    kept <- if (is.null(loss)) rep(TRUE, n) else stats::runif(n) >= loss[k, ]
     delay_day <- draw_day(loc[k, ], sc[k, ], fam, mx)
-    obs_death <- fatal & (delay_day <= h - 1)
+    obs_death <- kept & fatal & (delay_day <= h - 1)
 
     cts <- data.frame(
       .draw = k, outcome = "deaths", n = sum(obs_death),
@@ -48,7 +52,7 @@
     )
     if (use_rec) {
       rec_day <- draw_day(rloc[k, ], rsc[k, ], rfam, rmx)
-      obs_rec <- !fatal & (rec_day <= h - 1)
+      obs_rec <- kept & !fatal & (rec_day <= h - 1)
       cts <- rbind(cts, data.frame(
         .draw = k, outcome = "recoveries", n = sum(obs_rec),
         stringsAsFactors = FALSE
@@ -140,7 +144,8 @@
   )
   .cfr_ppc_stats(cfr, loc, sc, h, fam, use_rec, rloc, rsc, rfam, observed,
     mx = object$cfrnow$delay_max %||% Inf,
-    rmx = object$cfrnow$recovery_max %||% Inf
+    rmx = object$cfrnow$recovery_max %||% Inf,
+    loss = if (isTRUE(object$cfrnow$use_loss)) lp("loss") else NULL
   )
 }
 

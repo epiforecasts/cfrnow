@@ -166,7 +166,8 @@
 
 # A Normal(m, s) on logit(prob) whose induced mean/sd on the [0, 1] scale match
 # `mean`/`sd` (moment-matched).
-.prob_logitnormal <- function(prob_mean, prob_sd, class = "Intercept") {
+.prob_logitnormal <- function(prob_mean, prob_sd, class = "Intercept",
+                              dpar = "prob") {
   moments <- function(m, s) {
     x <- seq(m - 6 * s, m + 6 * s, length.out = 2001)
     w <- stats::dnorm(x, m, s)
@@ -184,7 +185,7 @@
   )
   opt <- stats::optim(init, obj, method = "Nelder-Mead")
   brms::set_prior(sprintf("normal(%.4f, %.4f)", opt$par[1], exp(opt$par[2])),
-    class = class, dpar = "prob"
+    class = class, dpar = dpar
   )
 }
 
@@ -207,16 +208,21 @@
 # A distspec Beta() prior -> the matching logit-scale brms prior. `class` is
 # "Intercept" when the prob formula keeps its intercept, else "b" to place the
 # prior on the (logit-scale) coefficients of an intercept-free formula.
-.prob_prior_to_brms <- function(prob_prior, class = "Intercept") {
+.prob_prior_to_brms <- function(prob_prior, class = "Intercept",
+                                dpar = "prob") {
   ok <- inherits(prob_prior, "dist_spec") &&
     get_distribution(prob_prior) == "beta"
   if (!ok) {
-    stop("`prob_prior` must be a distspec Beta() distribution.", call. = FALSE)
+    stop("`", dpar, "_prior` must be a distspec Beta() distribution.",
+      call. = FALSE
+    )
   }
   p <- get_parameters(prob_prior)
   a <- p$shape1
   b <- p$shape2
-  .prob_logitnormal(a / (a + b), sqrt(a * b / ((a + b)^2 * (a + b + 1))), class)
+  .prob_logitnormal(
+    a / (a + b), sqrt(a * b / ((a + b)^2 * (a + b + 1))), class, dpar
+  )
 }
 
 # Does `formula` carry an old-style `cfr ~ ...` sub-formula that needs

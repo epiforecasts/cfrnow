@@ -104,6 +104,10 @@ epidist_family_model.epidist_cure_model <- function(data, family, ...) {
     dpars <- c(dpars, paste0("r", rfam$dpars)) # recovery: own family
     links <- c(links, .delay_links(rfam))
   }
+  if (isTRUE(attr(data, "use_loss"))) {
+    dpars <- c(dpars, "loss") # last, so the delay / recovery split still holds
+    links <- c(links, "logit")
+  }
   brms::custom_family(
     paste0("cfrnow_", family$family),
     dpars = dpars, links = links, type = "int",
@@ -148,13 +152,34 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
 }
 
 # Fill a `<<hole>>` template from inst/stan with a named list of replacements.
+# The template's header comment documents the holes for whoever edits the file,
+# and filling it in would garble it, so it is dropped from the generated code.
 .fill_stan_template <- function(file, holes) {
   path <- system.file("stan", file, package = "cfrnow")
-  code <- paste(readLines(path), collapse = "\n")
+  src <- readLines(path)
+  header_end <- grep("*/", src, fixed = TRUE)[1]
+  if (!is.na(header_end)) src <- src[-seq_len(header_end)]
+  code <- paste(src, collapse = "\n")
   for (nm in names(holes)) {
     code <- gsub(paste0("<<", nm, ">>"), holes[[nm]], code, fixed = TRUE)
   }
   code
+}
+
+# Template holes for loss to follow-up. Without it the generated lpmf is the
+# same code as before: no `loss` parameter, and an unresolved case contributes
+# its survival term alone. With it, a recorded outcome also says the case was
+# not lost, and an unresolved case is either lost or still unresolved.
+.loss_holes <- function(use_loss) {
+  if (!use_loss) {
+    return(list(loss_pars = "", observed = "", lost_open = "", lost_close = ""))
+  }
+  list(
+    loss_pars = "real loss, ",
+    observed = "log1m(loss) + ",
+    lost_open = "log_sum_exp(log(loss), log1m(loss) + ",
+    lost_close = ")"
+  )
 }
 
 # A delay's upper truncation as Stan code. distspec truncates a delay at its
@@ -190,21 +215,23 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
 #' @export
 epidist_stancode.epidist_cure_model <- function(data, family, formula, ...) {
   family_name <- sub("^cfrnow_", "", family$name)
-  prob_pos <- match("prob", family$dpars)
-  delay_dpars <- family$dpars[seq_len(prob_pos - 1)]
-  use_recovery <- prob_pos < length(family$dpars)
+  use_loss <- "loss" %in% family$dpars
+  dpars <- setdiff(family$dpars, "loss") # loss sits after the delay dpars
+  prob_pos <- match("prob", dpars)
+  delay_dpars <- dpars[seq_len(prob_pos - 1)]
+  use_recovery <- prob_pos < length(dpars)
 
-  holes <- list(
+  holes <- c(.loss_holes(use_loss), list(
     family = family_name,
     death_pars = toString(paste0("real ", delay_dpars)),
     death_id = primarycensored::pcd_stan_dist_id(family_name, type = "delay"),
     death_reparam = family$param,
     primary_id = primarycensored::pcd_stan_dist_id("uniform", type = "primary"),
     death_upper = .stan_upper(attr(data, "delay_max"))
-  )
+  ))
   template <- "cure_lpmf_death.stan"
   if (use_recovery) {
-    recovery_dpars <- family$dpars[(prob_pos + 1):length(family$dpars)]
+    recovery_dpars <- dpars[(prob_pos + 1):length(dpars)]
     holes <- c(holes, .recovery_holes(
       family, attr(data, "recovery_family"),
       recovery_dpars, attr(data, "recovery_max")

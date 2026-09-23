@@ -9,7 +9,8 @@ prepare_cfr_data(
   obs_time = NULL,
   covariates = character(),
   t0 = NULL,
-  max_delay = 60
+  max_delay = 60,
+  last_contact_date = NULL
 )
 }
 \arguments{
@@ -43,6 +44,12 @@ records; it does \strong{not} bound or truncate the onset-to-death delay the
 model fits, so set it comfortably above the longest credible delay to
 avoid discarding genuine long-delay deaths (which would bias the delay
 short). It also sets the default origin, \code{t0 = min(onset) - max_delay}.}
+
+\item{last_contact_date}{Optional column name in \code{linelist} holding, for a
+case with no recorded outcome, the last date it was known to be alive and
+unresolved (a transfer, a discharge against advice, the last ward note).
+Such a case is censored there instead of at \code{obs_time}, so the follow-up
+the model sees stops where the data do. \code{NA} means followed to the cut-off.}
 }
 \value{
 A \code{cfrnow_data} list with the aggregated model inputs (\code{n_death},

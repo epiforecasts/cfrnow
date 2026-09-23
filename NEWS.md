@@ -1,5 +1,14 @@
 # cfrnow (development version)
 
+* `fit_cfr()` gains `loss_prior`, a `Beta()` prior on the probability that a
+  case is lost to follow-up and its outcome never recorded. A fit that allows
+  for loss estimates it alongside the outcome probability and the delays, and
+  `summary()` reports it as a `loss` row. Without it, cases that stay
+  unresolved far longer than the delays allow either stretch the delay's tail
+  or stop the sampler from starting.
+* `prepare_cfr_data()` gains `last_contact_date`, the column holding the date a
+  case with no recorded outcome was last known unresolved. Such a case is
+  censored there instead of at the cut-off, in retrospective fits too.
 * The survival term for an unresolved case is computed on the log scale
   (`primarycensored_lcdf()` and `log1m_exp()`). A case followed up for much
   longer than the delay rounds the CDF to 1, where the previous `log1m()` form
