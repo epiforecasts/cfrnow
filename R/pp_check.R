@@ -3,12 +3,13 @@
 # be tested directly: `cfr`, `loc` and `sc` (and their recovery counterparts)
 # are ndraws-by-n matrices of per-draw, per-case parameters on the response
 # scale, `h` is the per-case follow-up horizon, `mx` and `rmx` are the delays'
-# upper bounds (Inf when unbounded), `loss` is the per-draw, per-case
-# probability of being lost to follow-up (NULL when the fit has none), and
-# `observed` holds the observed death and recovery counts and the observed
-# death delays.
+# upper bounds (Inf when unbounded), `loss_d` and `loss_r` are the per-draw,
+# per-case probabilities that a fatal and a non-fatal case are lost to
+# follow-up (NULL when the fit has no loss), and `observed` holds the observed
+# death and recovery counts and the observed death delays.
 .cfr_ppc_stats <- function(cfr, loc, sc, h, fam, use_rec, rloc, rsc, rfam,
-                           observed, mx = Inf, rmx = Inf, loss = NULL) {
+                           observed, mx = Inf, rmx = Inf, loss_d = NULL,
+                           loss_r = NULL) {
   nd <- nrow(cfr)
   n <- ncol(cfr)
   # Each family's draws come from its brms mu-form: mu is the delay's mean and
@@ -41,10 +42,13 @@
   delays <- vector("list", nd)
   for (k in seq_len(nd)) {
     fatal <- stats::runif(n) < cfr[k, ]
-    # a case lost to follow-up has no outcome recorded, whatever happens to it
-    kept <- if (is.null(loss)) rep(TRUE, n) else stats::runif(n) >= loss[k, ]
+    # a case lost to follow-up has its outcome recorded nowhere
+    kept <- function(loss) {
+      if (is.null(loss)) rep(TRUE, n) else stats::runif(n) >= loss[k, ]
+    }
+    kept_d <- kept(loss_d)
     delay_day <- draw_day(loc[k, ], sc[k, ], fam, mx)
-    obs_death <- kept & fatal & (delay_day <= h - 1)
+    obs_death <- kept_d & fatal & (delay_day <= h - 1)
 
     cts <- data.frame(
       .draw = k, outcome = "deaths", n = sum(obs_death),
@@ -52,7 +56,7 @@
     )
     if (use_rec) {
       rec_day <- draw_day(rloc[k, ], rsc[k, ], rfam, rmx)
-      obs_rec <- kept & !fatal & (rec_day <= h - 1)
+      obs_rec <- kept(loss_r) & !fatal & (rec_day <= h - 1)
       cts <- rbind(cts, data.frame(
         .draw = k, outcome = "recoveries", n = sum(obs_rec),
         stringsAsFactors = FALSE
@@ -80,6 +84,20 @@
     delays = do.call(rbind, delays),
     observed_delays = data.frame(delay = observed$death_delays)
   )
+}
+
+# The per-draw, per-case probability that a case of this outcome is lost to
+# follow-up: draws when the fit estimates it, the fixed value repeated when it
+# was given as a number, and NULL when this half has no loss.
+.ppc_loss <- function(object, which, lp, dims) {
+  part <- object$cfrnow$loss_parts[[which]]
+  if (is.null(part) || .loss_is_off(part)) {
+    return(NULL)
+  }
+  if (part %in% object$cfrnow$loss_dpars) {
+    return(lp(part))
+  }
+  matrix(as.numeric(part), dims[1], dims[2])
 }
 
 # Pull the per-draw, per-case CFR and delay parameters out of the fit with
@@ -145,7 +163,8 @@
   .cfr_ppc_stats(cfr, loc, sc, h, fam, use_rec, rloc, rsc, rfam, observed,
     mx = object$cfrnow$delay_max %||% Inf,
     rmx = object$cfrnow$recovery_max %||% Inf,
-    loss = if (isTRUE(object$cfrnow$use_loss)) lp("loss") else NULL
+    loss_d = .ppc_loss(object, "death", lp, dim(cfr)),
+    loss_r = .ppc_loss(object, "recovery", lp, dim(cfr))
   )
 }
 

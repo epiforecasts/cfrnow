@@ -240,3 +240,59 @@
   formula$pforms$prob <- cfr_form
   formula
 }
+
+# A loss-to-follow-up specification: for the death and the recovery half, the
+# Stan expression for the probability of being lost (a dpar name or a literal),
+# the dpars to estimate, and their priors. `NULL` means every outcome is
+# eventually recorded; a single Beta() means one probability for both; a list
+# gives each half its own fixed number or Beta().
+.loss_spec <- function(loss_prior) {
+  none <- list(death = "0", recovery = "0")
+  if (is.null(loss_prior)) {
+    return(list(
+      parts = none, dpars = character(), prior = NULL, shared = FALSE
+    ))
+  }
+  if (inherits(loss_prior, "dist_spec")) {
+    # one probability whatever the outcome: the data identifies it
+    return(list(
+      parts = list(death = "loss", recovery = "loss"), dpars = "loss",
+      prior = .prob_prior_to_brms(loss_prior, "Intercept", "loss"),
+      shared = TRUE
+    ))
+  }
+  if (!is.list(loss_prior) || !all(names(loss_prior) %in% names(none)) ||
+        !all(names(none) %in% names(loss_prior))) {
+    stop("`loss_prior` must be a Beta(), or a list with `death` and ",
+      "`recovery` entries, each a Beta() or a number.",
+      call. = FALSE
+    )
+  }
+  dpar_of <- c(death = "dloss", recovery = "rloss")
+  parts <- none
+  dpars <- character()
+  prior <- brms::empty_prior()
+  for (nm in names(none)) {
+    p <- loss_prior[[nm]]
+    if (is.numeric(p)) {
+      if (length(p) != 1 || is.na(p) || p < 0 || p >= 1) {
+        stop("a fixed `loss_prior` entry must be a probability below 1.",
+          call. = FALSE
+        )
+      }
+      parts[[nm]] <- sprintf("%.8f", p)
+    } else {
+      parts[[nm]] <- dpar_of[[nm]]
+      dpars <- c(dpars, dpar_of[[nm]])
+      prior <- c(
+        prior, .prob_prior_to_brms(p, "Intercept", dpar_of[[nm]])
+      )
+    }
+  }
+  list(parts = parts, dpars = dpars, prior = prior, shared = FALSE)
+}
+
+# Is this half of the loss specification switched off (a fixed zero)?
+.loss_is_off <- function(part) {
+  !is.na(suppressWarnings(as.numeric(part))) && as.numeric(part) == 0
+}

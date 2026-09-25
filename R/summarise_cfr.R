@@ -122,8 +122,9 @@ naive_cfr <- function(n_deaths, n_cases) {
     res$recovery_mean <- r$mean
     res$recovery_sd <- r$sd
   }
-  if (isTRUE(object$cfrnow$use_loss)) {
-    res$loss <- stats::plogis(dr[["b_loss_Intercept"]])
+  for (dpar in object$cfrnow$loss_dpars) {
+    nm <- c(loss = "loss", dloss = "loss_death", rloss = "loss_recovery")[dpar]
+    res[[nm]] <- stats::plogis(dr[[paste0("b_", dpar, "_Intercept")]])
   }
   # A grouped fit's cfr columns come from posterior_epred, which returns draws
   # in as_draws_df order, so they line up with these chain/iteration ids.
@@ -137,8 +138,9 @@ naive_cfr <- function(n_deaths, n_cases) {
 #'
 #' Reports the corrected CFR and the onset-to-death delay (mean and sd, in days)
 #' as posterior quantiles with convergence diagnostics (`rhat`, `ess_bulk`). A
-#' fit with a `loss_prior` also reports `loss`, the probability that a case is
-#' lost to follow-up and its outcome never recorded. The
+#' fit with a `loss_prior` also reports the estimated probability of being lost
+#' to follow-up, as `loss`, or as `loss_death` and `loss_recovery` when the two
+#' outcomes have their own. The
 #' naive `deaths / cases` ratio is returned as an attribute; in real time it
 #' underestimates the corrected CFR because not every fatal case has died by the
 #' cut-off.

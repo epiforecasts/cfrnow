@@ -113,21 +113,30 @@ test_that(".assert_within_max rejects data outside a bounded delay", {
 })
 
 test_that(".assert_loss_identified needs unresolved cases", {
+  shared <- .loss_spec(Beta(1, 1))
+  both <- .loss_spec(list(death = Beta(1, 9), recovery = Beta(1, 3)))
+  one_sided <- .loss_spec(list(death = 0, recovery = Beta(1, 1)))
+
   resolved <- as_epidist_cure_model(data.frame(
     y = c(5L, 0L), outcome = c(.CURE_DEATH, .CURE_RESOLVED),
     pwindow = 1, swindow = 1
   ))
   expect_error(
-    .assert_loss_identified(resolved, use_recovery = TRUE), "still unresolved"
+    .assert_loss_identified(resolved, TRUE, shared), "still unresolved"
   )
 
   censored <- as_epidist_cure_model(data.frame(
     y = c(5L, 20L), outcome = c(.CURE_DEATH, .CURE_CENSORED),
     pwindow = 1, swindow = 1
   ))
-  expect_true(.assert_loss_identified(censored, use_recovery = TRUE))
+  expect_true(.assert_loss_identified(censored, TRUE, shared))
+  expect_true(.assert_loss_identified(censored, TRUE, one_sided))
+
   expect_warning(
-    .assert_loss_identified(censored, use_recovery = FALSE),
-    "weakly identified"
+    .assert_loss_identified(censored, FALSE, shared), "weakly identified"
+  )
+  # both halves estimated: the data cannot say which outcome goes missing
+  expect_warning(
+    .assert_loss_identified(censored, TRUE, both), "cannot tell apart"
   )
 })

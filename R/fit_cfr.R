@@ -18,13 +18,22 @@
 #' says the case was kept, and a case still unresolved at the cut-off was
 #' either lost or genuinely unresolved. Without it, a case unresolved far
 #' longer than the delays allow has almost no probability, which pulls the
-#' delay's tail out or stops the sampler from starting. The loss probability is
-#' told apart from the outcome probability by the unresolved cases and the
-#' recorded recoveries, so the two-outcome fit identifies it best; a death-only
-#' fit leans on the priors, and `fit_cfr()` warns. Where a case has a date it
-#' was last known unresolved, censoring it there through
-#' [prepare_cfr_data()]'s `last_contact_date` uses that timing instead of
-#' inferring it.
+#' delay's tail out or stops the sampler from starting.
+#'
+#' How much the data can say depends on whether loss follows the outcome. One
+#' probability for both (`loss_prior = Beta(1, 1)`) is identified by the
+#' recorded deaths, the recorded recoveries and the cases that stay unresolved,
+#' and it assumes a lost case's CFR matches everyone else's. Fixing one half
+#' (`list(death = 0, recovery = Beta(1, 1))`, where a death is always written
+#' down and a discharge may not be) is identified too. Estimating both asks for
+#' one number more than the data holds, so the priors decide the split and
+#' `fit_cfr()` warns; treat that as a sensitivity analysis. A death-only fit
+#' identifies loss weakly whichever form is used, because the recorded
+#' recoveries are what separate it from the outcome probability.
+#'
+#' Where a case has a date it was last known unresolved, censoring it there
+#' through [prepare_cfr_data()]'s `last_contact_date` uses that timing instead
+#' of inferring the loss.
 #'
 #' A delay's `max` truncates it: the likelihood renormalises the distribution
 #' over `[0, max)` days, matching how \pkg{distspec} discretises the same
@@ -58,9 +67,13 @@
 #'   `Beta(1, 1)`.
 #' @param recovery_delay Optional onset-to-recovery delay (same form as `delay`)
 #'   for the two-outcome fit; may use a different family from `delay`.
-#' @param loss_prior Optional [distspec::Beta()] prior on the probability that
-#'   a case is lost to follow-up, so its outcome never reaches the line list.
-#'   `NULL` (the default) assumes every outcome is eventually recorded.
+#' @param loss_prior Optional prior on the probability that a case is lost to
+#'   follow-up, so its outcome never reaches the line list. A
+#'   [distspec::Beta()] gives one probability whatever the outcome; a list with
+#'   `death` and `recovery` entries, each a `Beta()` or a fixed number, gives
+#'   them their own (e.g. `list(death = 0, recovery = Beta(1, 1))` where every
+#'   death is recorded). `NULL` (the default) assumes every outcome is
+#'   eventually recorded.
 #' @param formula A `brms` formula for the delay location `mu` and, optionally,
 #'   `prob` (`prob ~ ...`). Defaults to `mu ~ 1`. `prob_prior` normally lands on
 #'   the `prob` intercept; when the `prob` formula drops the intercept (e.g.
@@ -135,11 +148,14 @@ fit_cfr <- function(data,
     }
   }
   use_recovery <- isTRUE(attr(cure, "use_recovery"))
-  use_loss <- !is.null(loss_prior)
+  loss <- .loss_spec(loss_prior)
+  use_loss <- length(loss$dpars) > 0 || !.loss_is_off(loss$parts$death) ||
+    !.loss_is_off(loss$parts$recovery)
   if (use_loss) {
-    .assert_loss_identified(cure, use_recovery)
-    attr(cure, "use_loss") <- TRUE
-    prior <- c(prior, .prob_prior_to_brms(loss_prior, "Intercept", "loss"))
+    .assert_loss_identified(cure, use_recovery, loss)
+    attr(cure, "loss_parts") <- loss$parts
+    attr(cure, "loss_dpars") <- loss$dpars
+    prior <- c(prior, loss$prior)
   } else {
     # a lost case explains an unresolved one, so the bounds only bite without it
     .assert_within_max(
@@ -175,6 +191,9 @@ fit_cfr <- function(data,
     },
     prob_prior_sd = .prob_prior_sd(prior),
     use_loss = use_loss,
+    loss_dpars = loss$dpars,
+    loss_parts = loss$parts,
+    loss_shared = loss$shared,
     delay_max = dd$max,
     recovery_max = if (use_recovery) attr(cure, "recovery_max") else Inf,
     obs_time = obs_time,
@@ -263,16 +282,18 @@ fit_cfr <- function(data,
 
 #' Check that a loss-to-follow-up probability can be estimated
 #'
-#' `loss` is told apart from the outcome probability by cases that stay
+#' Loss is told apart from the outcome probability by cases that stay
 #' unresolved, so a fit with none of them cannot estimate it. Recorded
 #' recoveries separate the two further: without them the death count alone
-#' identifies only the product of `prob` and the chance of being kept, so the
-#' split rests on the priors.
+#' identifies only the product of `prob` and the chance of being kept. Letting
+#' both outcomes be lost at their own rate asks the data for one number more
+#' than it holds, so the priors decide the split.
 #' @param cure An `epidist_cure_model`.
 #' @param use_recovery Whether the fit times recoveries.
+#' @param loss A `.loss_spec()` list.
 #' @return `TRUE`, invisibly.
 #' @noRd
-.assert_loss_identified <- function(cure, use_recovery) {
+.assert_loss_identified <- function(cure, use_recovery, loss) {
   if (!any(cure$outcome == .CURE_CENSORED)) {
     stop("`loss_prior` needs cases that are still unresolved at the cut-off; ",
       "this data has none (a retrospective fit records every outcome).",
@@ -283,6 +304,12 @@ fit_cfr <- function(data,
     warning("`loss_prior` without timed recoveries: the loss probability and ",
       "the outcome probability are weakly identified, so the estimate will ",
       "lean on their priors.",
+      call. = FALSE
+    )
+  } else if (length(loss$dpars) > 1) {
+    warning("`loss_prior` estimates a loss probability for deaths and for ",
+      "recoveries, which the data cannot tell apart: the split follows the ",
+      "priors. Treat the fit as a sensitivity analysis, or fix one of them.",
       call. = FALSE
     )
   }

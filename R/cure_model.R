@@ -104,9 +104,11 @@ epidist_family_model.epidist_cure_model <- function(data, family, ...) {
     dpars <- c(dpars, paste0("r", rfam$dpars)) # recovery: own family
     links <- c(links, .delay_links(rfam))
   }
-  if (isTRUE(attr(data, "use_loss"))) {
-    dpars <- c(dpars, "loss") # last, so the delay / recovery split still holds
-    links <- c(links, "logit")
+  loss_dpars <- attr(data, "loss_dpars")
+  if (length(loss_dpars) > 0) {
+    # last, so the delay / recovery split still holds
+    dpars <- c(dpars, loss_dpars)
+    links <- c(links, rep("logit", length(loss_dpars)))
   }
   brms::custom_family(
     paste0("cfrnow_", family$family),
@@ -166,19 +168,39 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
   code
 }
 
-# Template holes for loss to follow-up. Without it the generated lpmf is the
-# same code as before: no `loss` parameter, and an unresolved case contributes
-# its survival term alone. With it, a recorded outcome also says the case was
-# not lost, and an unresolved case is either lost or still unresolved.
-.loss_holes <- function(use_loss) {
-  if (!use_loss) {
-    return(list(loss_pars = "", observed = "", lost_open = "", lost_close = ""))
+# Template holes for loss to follow-up. `parts` gives the Stan expression for
+# each half's loss probability (a dpar name, or a literal for a fixed one), and
+# "0" switches that half off, leaving the code it generates as it was before
+# loss was modelled. A recorded outcome also says the case was kept; an
+# unresolved case is a mixture over being lost and being genuinely unresolved.
+.loss_holes <- function(parts, dpars, use_recovery) {
+  parts <- parts %||% list(death = "0", recovery = "0")
+  kept <- function(part) {
+    if (.loss_is_off(part)) "" else sprintf("log1m(%s) + ", part)
   }
+  lost <- function(part) sprintf("log(%s)", part)
+  mixture <- c(
+    if (!.loss_is_off(parts$death)) {
+      sprintf("log(prob) + %s", lost(parts$death))
+    },
+    if (use_recovery && !.loss_is_off(parts$recovery)) {
+      sprintf("log1m(prob) + %s", lost(parts$recovery))
+    },
+    sprintf("log(prob) + %slog_surv_d", kept(parts$death)),
+    if (use_recovery) {
+      sprintf("log1m(prob) + %slog_surv_r", kept(parts$recovery))
+    }
+  )
   list(
-    loss_pars = "real loss, ",
-    observed = "log1m(loss) + ",
-    lost_open = "log_sum_exp(log(loss), log1m(loss) + ",
-    lost_close = ")"
+    loss_pars = if (length(dpars) == 0) {
+      ""
+    } else {
+      paste0(toString(paste0("real ", dpars)), ", ")
+    },
+    death_kept = kept(parts$death),
+    recovery_kept = kept(parts$recovery),
+    death_lost = kept(parts$death),
+    unresolved_terms = paste(mixture, collapse = ",\n        ")
   )
 }
 
@@ -215,20 +237,26 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
 #' @export
 epidist_stancode.epidist_cure_model <- function(data, family, formula, ...) {
   family_name <- sub("^cfrnow_", "", family$name)
-  use_loss <- "loss" %in% family$dpars
-  dpars <- setdiff(family$dpars, "loss") # loss sits after the delay dpars
+  loss_dpars <- intersect(c("loss", "dloss", "rloss"), family$dpars)
+  dpars <- setdiff(family$dpars, loss_dpars) # loss sits after the delay dpars
   prob_pos <- match("prob", dpars)
   delay_dpars <- dpars[seq_len(prob_pos - 1)]
   use_recovery <- prob_pos < length(dpars)
 
-  holes <- c(.loss_holes(use_loss), list(
-    family = family_name,
-    death_pars = toString(paste0("real ", delay_dpars)),
-    death_id = primarycensored::pcd_stan_dist_id(family_name, type = "delay"),
-    death_reparam = family$param,
-    primary_id = primarycensored::pcd_stan_dist_id("uniform", type = "primary"),
-    death_upper = .stan_upper(attr(data, "delay_max"))
-  ))
+  holes <- c(
+    .loss_holes(attr(data, "loss_parts"), loss_dpars, use_recovery),
+    list(
+      family = family_name,
+      death_pars = toString(paste0("real ", delay_dpars)),
+      death_id = primarycensored::pcd_stan_dist_id(family_name, type = "delay"),
+      death_reparam = family$param,
+      primary_id = primarycensored::pcd_stan_dist_id(
+        "uniform",
+        type = "primary"
+      ),
+      death_upper = .stan_upper(attr(data, "delay_max"))
+    )
+  )
   template <- "cure_lpmf_death.stan"
   if (use_recovery) {
     recovery_dpars <- dpars[(prob_pos + 1):length(dpars)]
