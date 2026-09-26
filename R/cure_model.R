@@ -157,9 +157,6 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
   code
 }
 
-# Template holes for the recovery half of a two-outcome fit: its own family's
-# parameter declarations, distribution id, and native reparameterisation
-# (r-prefixed to match the recovery dpars rmu, rsigma / rshape).
 # A delay's upper truncation as Stan code. distspec truncates a delay at its
 # `max`, giving recorded delays of 0 to `max - 1` days, so the likelihood
 # normalises over the same support.
@@ -170,6 +167,9 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
   sprintf("%.8f", delay_max)
 }
 
+# Template holes for the recovery half of a two-outcome fit: its own family's
+# parameter declarations, distribution id, and native reparameterisation
+# (r-prefixed to match the recovery dpars rmu, rsigma / rshape).
 .recovery_holes <- function(family, recovery_family, recovery_dpars,
                             recovery_max) {
   rfam <- recovery_family %||% family
