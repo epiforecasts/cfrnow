@@ -97,3 +97,40 @@ test_that(".formula_has_cfr / .rename_cfr_formula translate `cfr ~ ...`", {
   expect_null(translated$pforms$cfr)
   expect_equal(translated$pforms$prob, prob ~ 0 + grp)
 })
+
+test_that("a delay max truncates the generated lpmf", {
+  cure <- as_epidist_cure_model(prepare_cfr_data(
+    simulate_linelist(n = 100, cfr = 0.4, delay = LogNormal(2.4, 0.5)),
+    obs_time = NULL
+  ))
+  # primarycensored's own functions mention positive_infinity(), so look only
+  # at the cure lpmf cfrnow generates
+  cure_lpmf <- function(code) {
+    regmatches(code, regexpr(
+      "(?s)real cfrnow_lognormal_lpmf.*?\n}", code,
+      perl = TRUE
+    ))
+  }
+  unbounded <- cure_lpmf(stancode_for(
+    cure, LogNormal(meanlog = 2.41, sdlog = 0.51)
+  ))
+  expect_true(grepl("positive_infinity()", unbounded, fixed = TRUE))
+
+  attr(cure, "delay_max") <- 30
+  bounded <- cure_lpmf(stancode_for(
+    cure, LogNormal(meanlog = 2.41, sdlog = 0.51, max = 30)
+  ))
+  # distspec truncates at max, so recorded delays run from 0 to max - 1
+  expect_true(grepl("30.00000000", bounded, fixed = TRUE))
+  expect_false(grepl("positive_infinity()", bounded, fixed = TRUE))
+})
+
+test_that(".delay_max reads a bound without resolving uncertain parameters", {
+  expect_identical(.delay_max(LogNormal(2.4, 0.5)), Inf)
+  expect_identical(.delay_max(LogNormal(2.4, 0.5, max = 30)), 30)
+  expect_identical(
+    .delay_max(Gamma(shape = Normal(2, 1), rate = Normal(0.3, 0.1), max = 14)),
+    14
+  )
+  expect_error(.delay_max(LogNormal(2.4, 0.5, max = 0)), "positive number")
+})

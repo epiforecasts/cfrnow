@@ -86,3 +86,28 @@ test_that("prepare_cfr_data requires onset_date and death_date columns", {
 test_that("summary.cfrnow_fit rejects objects not from fit_cfr", {
   expect_error(summary.cfrnow_fit(1), "fit_cfr")
 })
+
+test_that(".assert_within_max rejects data outside a bounded delay", {
+  cure <- as_epidist_cure_model(data.frame(
+    y = c(5L, 40L, 10L, 90L),
+    outcome = c(.CURE_DEATH, .CURE_DEATH, .CURE_RECOVERY, .CURE_CENSORED),
+    pwindow = 1, swindow = 1
+  ))
+  expect_true(.assert_within_max(cure, Inf, Inf))
+  expect_error(.assert_within_max(cure, 30, Inf), "1 death\\(s\\)")
+  expect_error(.assert_within_max(cure, Inf, 5), "1 recovery\\(ies\\)")
+
+  # a delay whose secondary window closes past the bound is rejected too: the
+  # 40-day death needs a max of 41, and a wider secondary window needs more
+  expect_true(.assert_within_max(cure, 41, 95))
+  expect_error(.assert_within_max(cure, 40, 95), "1 death\\(s\\)")
+  wide <- cure
+  wide$swindow <- 2
+  expect_error(.assert_within_max(wide, 41, 95), "1 death\\(s\\)")
+
+  # a censored case beyond every bound cannot resolve in a two-outcome fit
+  expect_error(.assert_within_max(cure, 60, 60), "still unresolved")
+  # death-only: an unresolved case is simply a survivor, whatever its follow-up
+  attr(cure, "use_recovery") <- FALSE
+  expect_true(.assert_within_max(cure, 60, NULL))
+})

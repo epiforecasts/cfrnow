@@ -151,3 +151,23 @@ test_that("onset and covariates are carried through to the cases frame", {
   expect_true("region" %in% names(cure))
   expect_s3_class(cure$onset, "Date")
 })
+
+test_that("a bounded delay simulates the recorded delays the model fits", {
+  set.seed(9)
+  mx <- 14
+  ll <- simulate_linelist(
+    n = 20000, cfr = 1, delay = LogNormal(2.4, 0.5, max = mx)
+  )
+  recorded <- as.numeric(ll$death_date - ll$onset_date)
+  # the bound applies to the recorded delay, so it runs from 0 to max - 1
+  expect_equal(max(recorded), mx - 1)
+
+  # and each day carries the probability the likelihood gives it
+  empirical <- as.numeric(table(factor(recorded, levels = 0:(mx - 1))))
+  empirical <- empirical / sum(empirical)
+  model <- primarycensored::dprimarycensored(
+    0:(mx - 1), stats::plnorm,
+    pwindow = 1, swindow = 1, D = mx, meanlog = 2.4, sdlog = 0.5
+  )
+  expect_lt(sum(abs(empirical - model)) / 2, 0.02)
+})
