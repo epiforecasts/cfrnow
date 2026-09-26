@@ -10,11 +10,12 @@
   nd <- nrow(cfr)
   n <- ncol(cfr)
   # Each family's draws come from its brms mu-form: mu is the delay's mean and
-  # the second parameter is the family's own shape (sdlog for a lognormal). A
-  # bounded delay is drawn from the same distribution truncated at its max, to
-  # match the likelihood; inverting the CDF over [0, F(max)] does that in one
-  # pass, with no rejection loop.
-  draw_delay <- function(loc_i, sc_i, family, delay_max) {
+  # the second parameter is the family's own shape (sdlog for a lognormal).
+  # The likelihood truncates the recorded delay, the whole number of days from
+  # the recorded onset, so a bounded delay conditions on `frac + delay` staying
+  # under the bound rather than on the delay alone. Inverting the CDF over
+  # [0, F(max - frac)] does that in one pass, with no rejection loop.
+  draw_delay <- function(loc_i, sc_i, family, delay_max, frac) {
     d <- switch(family,
       lognormal = list(
         q = stats::qlnorm, p = stats::plnorm, a = loc_i, b = sc_i
@@ -32,7 +33,11 @@
         call. = FALSE
       )
     }
-    upper <- if (is.infinite(delay_max)) 1 else d$p(delay_max, d$a, d$b)
+    upper <- if (is.infinite(delay_max)) {
+      1
+    } else {
+      d$p(delay_max - frac, d$a, d$b)
+    }
     d$q(stats::runif(length(loc_i), 0, upper), d$a, d$b)
   }
 
@@ -41,7 +46,7 @@
   for (k in seq_len(nd)) {
     fatal <- stats::runif(n) < cfr[k, ]
     frac <- stats::runif(n) # true onset is uniform within its recorded day
-    delay_day <- floor(frac + draw_delay(loc[k, ], sc[k, ], fam, mx))
+    delay_day <- floor(frac + draw_delay(loc[k, ], sc[k, ], fam, mx, frac))
     obs_death <- fatal & (delay_day <= h - 1)
 
     cts <- data.frame(
@@ -49,7 +54,9 @@
       stringsAsFactors = FALSE
     )
     if (use_rec) {
-      rec_day <- floor(frac + draw_delay(rloc[k, ], rsc[k, ], rfam, rmx))
+      rec_day <- floor(
+        frac + draw_delay(rloc[k, ], rsc[k, ], rfam, rmx, frac)
+      )
       obs_rec <- !fatal & (rec_day <= h - 1)
       cts <- rbind(cts, data.frame(
         .draw = k, outcome = "recoveries", n = sum(obs_rec),
