@@ -61,6 +61,47 @@ test_that(".cfr_ppc_stats handles gamma delays and the recovery branch", {
   expect_setequal(two_outcome$observed_counts$outcome, c("deaths", "recoveries"))
 })
 
+test_that(".cfr_ppc_stats draws each family from its own mu-form", {
+  set.seed(4)
+  nd <- 40
+  n <- 500
+  moments_of <- function(family, loc, sc) {
+    reps <- .cfr_ppc_stats(
+      matrix(1, nd, n), matrix(loc, nd, n), matrix(sc, nd, n), rep(Inf, n),
+      family, FALSE, NULL, NULL, NULL,
+      list(deaths = 1L, recoveries = NA_integer_, death_delays = 1)
+    )
+    c(mean(reps$delays$delay), stats::sd(reps$delays$delay))
+  }
+  # gamma and weibull take mu as the delay's mean; lognormal takes the meanlog.
+  # The sd is what tells the families apart: all three share the mean here, so
+  # drawing from the wrong one would still pass on the mean alone.
+  cv_weibull <- sqrt(gamma(1 + 2 / 1.5) / gamma(1 + 1 / 1.5)^2 - 1)
+  expect_equal(
+    moments_of("weibull", 12, 1.5), c(12, 12 * cv_weibull),
+    tolerance = 0.05
+  )
+  expect_equal(
+    moments_of("gamma", 12, 1.5), c(12, 12 / sqrt(1.5)),
+    tolerance = 0.05
+  )
+  lnorm_mean <- 12 * exp(0.3^2 / 2)
+  expect_equal(
+    moments_of("lognormal", log(12), 0.3),
+    c(lnorm_mean, lnorm_mean * sqrt(exp(0.3^2) - 1)),
+    tolerance = 0.05
+  )
+
+  expect_error(
+    .cfr_ppc_stats(
+      matrix(1, 2, 2), matrix(1, 2, 2), matrix(1, 2, 2), rep(Inf, 2),
+      "exponential", FALSE, NULL, NULL, NULL,
+      list(deaths = 1L, recoveries = NA_integer_, death_delays = 1)
+    ),
+    "lognormal, gamma and weibull"
+  )
+})
+
 test_that("the ppc plot helpers return ggplots", {
   skip_if_not_installed("ggplot2")
   set.seed(3)

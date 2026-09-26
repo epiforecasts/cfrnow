@@ -8,12 +8,22 @@
                            observed) {
   nd <- nrow(cfr)
   n <- ncol(cfr)
+  # Each family's draws come from its brms mu-form: mu is the delay's mean and
+  # the second parameter is the family's own shape (sdlog for a lognormal).
   draw_delay <- function(loc_i, sc_i, family) {
-    if (family == "lognormal") {
-      stats::rlnorm(length(loc_i), loc_i, sc_i)
-    } else {
-      stats::rgamma(length(loc_i), shape = sc_i, rate = sc_i / loc_i)
+    out <- switch(family,
+      lognormal = stats::rlnorm(length(loc_i), loc_i, sc_i),
+      gamma = stats::rgamma(length(loc_i), shape = sc_i, rate = sc_i / loc_i),
+      weibull = stats::rweibull(
+        length(loc_i), sc_i, loc_i / gamma(1 + 1 / sc_i)
+      )
+    )
+    if (is.null(out)) {
+      stop("pp_check_cfr() supports lognormal, gamma and weibull delays only.",
+        call. = FALSE
+      )
     }
+    out
   }
 
   counts <- vector("list", nd)
