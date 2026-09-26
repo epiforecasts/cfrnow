@@ -45,39 +45,35 @@ simulate_linelist <- function(n = 200, cfr = 0.5, delay, recovery = NULL,
   }
   onset <- as.Date(onset_start) + sample.int(onset_days, n, replace = TRUE) - 1
   fatal <- stats::runif(n) < cfr
-  # Sub-day onset offset: true onset is uniform within its recorded day.
-  onset_frac <- stats::runif(n)
 
-  otd <- sample_delay(n, delay, onset_frac)
+  otd <- sample_delay(n, delay)
   death_date <- as.Date(rep(NA, n))
-  # Event day = floor of the continuous onset-plus-delay time, so day-level
-  # delays are a genuine doubly-interval-censored draw.
-  death_date[fatal] <- onset[fatal] + floor(onset_frac[fatal] + otd[fatal])
+  death_date[fatal] <- onset[fatal] + otd[fatal]
   out <- data.frame(onset_date = onset, death_date = death_date)
 
   if (!is.null(recovery)) {
-    otr <- sample_delay(n, recovery, onset_frac)
+    otr <- sample_delay(n, recovery)
     recovery_date <- as.Date(rep(NA, n))
-    recovery_date[!fatal] <-
-      onset[!fatal] + floor(onset_frac[!fatal] + otr[!fatal])
+    recovery_date[!fatal] <- onset[!fatal] + otr[!fatal]
     out$recovery_date <- recovery_date
   }
   out
 }
 
-#' Draw delays from a distspec distribution with fixed parameters
+#' Draw recorded delays from a distspec distribution with fixed parameters
 #'
 #' Used by [simulate_linelist()] for the onset-to-death and onset-to-recovery
-#' delays. A delay with a `max` is drawn from its truncated form: the caller
-#' records `floor(onset_frac + delay)` days, and the bound applies to that
-#' recorded delay, as it does in the likelihood [fit_cfr()] uses. Errors if any
-#' parameter is a prior rather than a fixed number.
+#' delays. The true onset is uniform within its recorded day, so a recorded
+#' delay is `floor(onset_frac + delay)` whole days, a doubly-interval-censored
+#' draw. A delay with a `max` bounds that recorded delay, as the likelihood
+#' [fit_cfr()] uses does, so the offset and the delay are drawn together and
+#' resampled as a pair until they fall inside the bound. Errors if any parameter
+#' is a prior rather than a fixed number.
 #' @param n Number of delays to draw.
 #' @param delay A distspec delay distribution with fixed parameters.
-#' @param onset_frac Sub-day onset offset of each case, in `[0, 1)`.
-#' @return A numeric vector of `n` delays (days).
+#' @return An integer-valued vector of `n` recorded delays (whole days).
 #' @noRd
-sample_delay <- function(n, delay, onset_frac = 0) {
+sample_delay <- function(n, delay) {
   fam <- get_distribution(delay)
   pars <- get_parameters(delay)[natural_params(delay)]
   if (!all(vapply(pars, is.numeric, logical(1)))) {
@@ -107,10 +103,24 @@ sample_delay <- function(n, delay, onset_frac = 0) {
     )
   }
   delay_max <- .delay_max(delay)
-  upper <- if (is.infinite(delay_max)) {
-    1
-  } else {
-    d$p(delay_max - onset_frac, d$a, d$b)
+  frac <- stats::runif(n)
+  x <- d$q(stats::runif(n), d$a, d$b)
+  # Conditioning the delay alone on the bound would leave the offset uniform,
+  # where the likelihood tilts it; resample the pair instead, which conditions
+  # on the event the likelihood conditions on.
+  outside <- which(frac + x >= delay_max)
+  rounds <- 0L
+  while (length(outside) > 0) {
+    rounds <- rounds + 1L
+    if (rounds > 1000L) {
+      stop("the delay's `max` (", delay_max, " days) leaves almost no ",
+        "probability to draw from; raise it.",
+        call. = FALSE
+      )
+    }
+    frac[outside] <- stats::runif(length(outside))
+    x[outside] <- d$q(stats::runif(length(outside)), d$a, d$b)
+    outside <- outside[frac[outside] + x[outside] >= delay_max]
   }
-  d$q(stats::runif(n, 0, upper), d$a, d$b)
+  floor(frac + x)
 }

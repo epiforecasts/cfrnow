@@ -11,11 +11,11 @@
   n <- ncol(cfr)
   # Each family's draws come from its brms mu-form: mu is the delay's mean and
   # the second parameter is the family's own shape (sdlog for a lognormal).
-  # The likelihood truncates the recorded delay, the whole number of days from
-  # the recorded onset, so a bounded delay conditions on `frac + delay` staying
-  # under the bound rather than on the delay alone. Inverting the CDF over
-  # [0, F(max - frac)] does that in one pass, with no rejection loop.
-  draw_delay <- function(loc_i, sc_i, family, delay_max, frac) {
+  # A recorded delay is the whole number of days from the recorded onset, so it
+  # pairs the sub-day onset offset with the delay; a bound applies to that sum,
+  # and the pair is resampled until it falls inside, which conditions on the
+  # event the likelihood conditions on.
+  draw_day <- function(loc_i, sc_i, family, delay_max) {
     d <- switch(family,
       lognormal = list(
         q = stats::qlnorm, p = stats::plnorm, a = loc_i, b = sc_i
@@ -33,20 +33,31 @@
         call. = FALSE
       )
     }
-    upper <- if (is.infinite(delay_max)) {
-      1
-    } else {
-      d$p(delay_max - frac, d$a, d$b)
+    draw <- function(idx) d$q(stats::runif(length(idx)), d$a[idx], d$b[idx])
+    frac <- stats::runif(length(loc_i))
+    x <- draw(seq_along(loc_i))
+    outside <- which(frac + x >= delay_max)
+    rounds <- 0L
+    while (length(outside) > 0) {
+      rounds <- rounds + 1L
+      if (rounds > 1000L) {
+        stop("the delay's `max` (", delay_max, " days) leaves almost no ",
+          "probability to draw from; raise it.",
+          call. = FALSE
+        )
+      }
+      frac[outside] <- stats::runif(length(outside))
+      x[outside] <- draw(outside)
+      outside <- outside[frac[outside] + x[outside] >= delay_max]
     }
-    d$q(stats::runif(length(loc_i), 0, upper), d$a, d$b)
+    floor(frac + x)
   }
 
   counts <- vector("list", nd)
   delays <- vector("list", nd)
   for (k in seq_len(nd)) {
     fatal <- stats::runif(n) < cfr[k, ]
-    frac <- stats::runif(n) # true onset is uniform within its recorded day
-    delay_day <- floor(frac + draw_delay(loc[k, ], sc[k, ], fam, mx, frac))
+    delay_day <- draw_day(loc[k, ], sc[k, ], fam, mx)
     obs_death <- fatal & (delay_day <= h - 1)
 
     cts <- data.frame(
@@ -54,9 +65,7 @@
       stringsAsFactors = FALSE
     )
     if (use_rec) {
-      rec_day <- floor(
-        frac + draw_delay(rloc[k, ], rsc[k, ], rfam, rmx, frac)
-      )
+      rec_day <- draw_day(rloc[k, ], rsc[k, ], rfam, rmx)
       obs_rec <- !fatal & (rec_day <= h - 1)
       cts <- rbind(cts, data.frame(
         .draw = k, outcome = "recoveries", n = sum(obs_rec),
