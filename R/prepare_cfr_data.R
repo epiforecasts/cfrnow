@@ -18,11 +18,13 @@
 #' recovery dated before onset. In real time, cases whose onset falls after
 #' `obs_time` are not yet known and are excluded with a message.
 #'
-#' @param last_contact_date Optional column name in `linelist` holding, for a
-#'   case with no recorded outcome, the last date it was known to be alive and
-#'   unresolved (a transfer, a discharge against advice, the last ward note).
-#'   Such a case is censored there instead of at `obs_time`, so the follow-up
-#'   the model sees stops where the data do. `NA` means followed to the cut-off.
+#' @param last_contact_date Optional column name in `linelist` holding the last
+#'   date a case was known to be alive and unresolved (a transfer, a discharge
+#'   against advice, the last ward note). A case with no recorded outcome is
+#'   censored there instead of at `obs_time`, so the follow-up the model sees
+#'   stops where the data do. `NA` means followed to the cut-off, and the column
+#'   is ignored for a case whose death or recovery was recorded, which was
+#'   followed until that happened.
 #' @param linelist A data frame with an `onset_date` column, an optional
 #'   `onset_lower`/`onset_upper` onset window, a `death_date` column (`NA` for
 #'   cases that have not died; use the date the death was notified, i.e. when it
@@ -143,10 +145,13 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   }
 
   # Follow-up runs to the end of the cut-off day, or to the end of the last day
-  # the case was known unresolved when that comes first.
+  # the case was known unresolved when that comes first. A case whose outcome
+  # was recorded was followed until it happened, whatever a last-contact column
+  # says: such a column usually carries the outcome's own date, which would
+  # otherwise cut the case's follow-up back to the delay it just reported.
   last_contact_day <- as.numeric(last_contact - t0)
   follow_up_end <- rep(obs_offset + 1, nrow(linelist))
-  has_contact <- !is.na(last_contact_day)
+  has_contact <- !is.na(last_contact_day) & !is_death & !recovered
   follow_up_end[has_contact] <- pmin(
     follow_up_end[has_contact], last_contact_day[has_contact] + 1
   )

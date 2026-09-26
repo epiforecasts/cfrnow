@@ -203,3 +203,22 @@ test_that("last_contact_date censors a case where its follow-up stops", {
     "not a column"
   )
 })
+
+test_that("a recorded outcome is followed to its own date, not the last contact", {
+  ll <- data.frame(
+    onset_date = rep(as.Date("2026-01-01"), 3),
+    death_date = as.Date(c("2026-01-10", NA, NA)),
+    recovery_date = as.Date(c(NA, "2026-01-08", NA)),
+    # a "last seen" column carrying each case's own last record, as a real
+    # line list usually does
+    seen = as.Date(c("2026-01-10", "2026-01-08", "2026-01-05"))
+  )
+  d <- prepare_cfr_data(ll,
+    obs_time = as.Date("2026-01-31"), last_contact_date = "seen"
+  )
+  expect_equal(d$cases$outcome, c(1, 2, 0))
+  # the death and the recovery keep the full horizon, so a replicate can draw
+  # a longer delay than the one observed; only the unresolved case is cut short
+  expect_identical(d$cases$follow_up, c(31, 31, 5))
+  expect_identical(d$cases$y, c(9L, 7L, 5L))
+})

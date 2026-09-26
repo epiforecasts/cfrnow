@@ -45,11 +45,13 @@ model fits, so set it comfortably above the longest credible delay to
 avoid discarding genuine long-delay deaths (which would bias the delay
 short). It also sets the default origin, \code{t0 = min(onset) - max_delay}.}
 
-\item{last_contact_date}{Optional column name in \code{linelist} holding, for a
-case with no recorded outcome, the last date it was known to be alive and
-unresolved (a transfer, a discharge against advice, the last ward note).
-Such a case is censored there instead of at \code{obs_time}, so the follow-up
-the model sees stops where the data do. \code{NA} means followed to the cut-off.}
+\item{last_contact_date}{Optional column name in \code{linelist} holding the last
+date a case was known to be alive and unresolved (a transfer, a discharge
+against advice, the last ward note). A case with no recorded outcome is
+censored there instead of at \code{obs_time}, so the follow-up the model sees
+stops where the data do. \code{NA} means followed to the cut-off, and the column
+is ignored for a case whose death or recovery was recorded, which was
+followed until that happened.}
 }
 \value{
 A \code{cfrnow_data} list with the aggregated model inputs (\code{n_death},
