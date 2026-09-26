@@ -199,7 +199,7 @@ fit_cfr <- function(data,
     loss_shared = loss$shared,
     delay_max = dd$max,
     recovery_max = if (use_recovery) attr(cure, "recovery_max") else Inf,
-    obs_time = obs_time,
+    obs_time = if (length(obs_time) > 1) obs_time[used_rows] else obs_time,
     follow_up = follow_up[used_rows],
     onset = if ("onset" %in% names(cure)) cure$onset[used_rows] else NULL
   )

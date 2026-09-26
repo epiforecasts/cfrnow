@@ -32,7 +32,9 @@
 #'   optional
 #'   `recovery_date` column (`NA` unless the case is a recorded non-fatal
 #'   recovery). Dates may be `Date` or coercible.
-#' @param obs_time Real-time cut-off (`Date` or coercible), or `NULL` for a
+#' @param obs_time Real-time cut-off: one `Date` (or coercible), one per row of
+#'   `linelist`, or the name of a `linelist` column holding them, for data that
+#'   reaches the analyst at different times by site. `NULL` gives a
 #'   retrospective fit in which every recorded death counts and survivors are
 #'   treated as fully resolved. In real time, a case with a recovery on or
 #'   before `obs_time` is resolved; one still alive and unresolved is
@@ -55,10 +57,12 @@
 #' @return A `cfrnow_data` list with the aggregated model inputs (`n_death`,
 #'   `death_delay`, `death_width`, `n_recovery`, `recovery_delay`,
 #'   `recovery_width`, `n_cens`, `censor_time`, `censor_width`, `n_resolved`,
-#'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`) and a `cases`
+#'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`, which is one date
+#'   per kept case when the cut-offs differ and a single date when they do not)
+#'   and a `cases`
 #'   data frame with one row per kept case (`y`, `outcome`, `pwindow`,
-#'   `swindow`, `onset`, `follow_up` (days watched, `Inf` in a retrospective
-#'   fit) and any requested `covariates`), which
+#'   `swindow`, `onset`, that case's `obs_time`, `follow_up` (days watched,
+#'   `Inf` in a retrospective fit) and any requested `covariates`), which
 #'   [as_epidist_cure_model()] turns into the model frame.
 #' @examples
 #' ll <- simulate_linelist(n = 50, delay = LogNormal(2.4, 0.5))
@@ -99,20 +103,21 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
 
   # NULL means a retrospective fit. Store the cut-off as a typed Date so
   # downstream code (and the fit) always sees a Date; reject a stray NA so it is
-  # not mistaken for a real cut-off.
+  # not mistaken for a real cut-off. One cut-off per case is allowed, for data
+  # that reaches the analyst site by site.
   retrospective <- is.null(obs_time)
-  obs_time <- if (retrospective) as.Date(NA) else as.Date(obs_time)
-  if (!retrospective && is.na(obs_time)) {
-    stop("`obs_time` must be a valid date, or NULL for a retrospective fit.",
-      call. = FALSE
-    )
-  }
+  obs_time <- .case_obs_time(obs_time, linelist)
   if (is.null(t0)) t0 <- min(onset, na.rm = TRUE) - max_delay
   t0 <- as.Date(t0)
 
   onset_lo_day <- as.numeric(onset_lo - t0)
   width <- as.numeric(onset_up - onset_lo) + 1 # onset-window width, days
-  obs_offset <- if (retrospective) Inf else as.numeric(obs_time - t0)
+  # one offset per case: each case is observed up to its own cut-off
+  obs_offset <- if (retrospective) {
+    rep(Inf, nrow(linelist))
+  } else {
+    as.numeric(obs_time - t0)
+  }
 
   death_day <- as.numeric(death - t0) # NA for non-fatal
   is_death <- !is.na(death_day) & death_day <= obs_offset
@@ -150,7 +155,7 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   # says: such a column usually carries the outcome's own date, which would
   # otherwise cut the case's follow-up back to the delay it just reported.
   last_contact_day <- as.numeric(last_contact - t0)
-  follow_up_end <- rep(obs_offset + 1, nrow(linelist))
+  follow_up_end <- obs_offset + 1
   has_contact <- !is.na(last_contact_day) & !is_death & !recovered
   follow_up_end[has_contact] <- pmin(
     follow_up_end[has_contact], last_contact_day[has_contact] + 1
@@ -215,7 +220,7 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   cases <- data.frame(
     y = y_case[keep], outcome = outcome_case[keep],
     pwindow = width[keep], swindow = rep_len(1L, sum(keep)),
-    onset = onset[keep],
+    onset = onset[keep], obs_time = obs_time[keep],
     follow_up = pmax(follow_up_end[keep] - onset_lo_day[keep], 0)
   )
   for (cov in covariates) cases[[cov]] <- linelist[[cov]][keep]
@@ -237,8 +242,47 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
       n_recoveries = length(recovery_delay),
       cases = cases,
       t0 = t0,
-      obs_time = obs_time
+      # one per kept case, like every other per-case field here; a single
+      # cut-off for the whole line list stays a single date
+      obs_time = if (length(unique(obs_time[keep])) > 1) {
+        obs_time[keep]
+      } else {
+        obs_time[keep][1]
+      }
     ),
     class = "cfrnow_data"
   )
+}
+
+#' Per-case observation cut-off
+#'
+#' `obs_time` is a single date, one date per row of `linelist`, or the name of
+#' a `linelist` column holding them; `NULL` is a retrospective fit, which has no
+#' cut-off. Returns one date per row either way.
+#' @param obs_time The `obs_time` argument as supplied.
+#' @param linelist The line list, for a column name and its row count.
+#' @return A `Date` vector with one element per row of `linelist`.
+#' @noRd
+.case_obs_time <- function(obs_time, linelist) {
+  n <- nrow(linelist)
+  if (is.null(obs_time)) {
+    return(as.Date(rep(NA, n)))
+  }
+  if (is.character(obs_time) && length(obs_time) == 1 &&
+        obs_time %in% names(linelist)) {
+    obs_time <- linelist[[obs_time]]
+  }
+  obs_time <- as.Date(obs_time)
+  if (!length(obs_time) %in% c(1, n)) {
+    stop("`obs_time` must be one date, one per row of `linelist`, or the name ",
+      "of a `linelist` column holding them.",
+      call. = FALSE
+    )
+  }
+  if (anyNA(obs_time)) {
+    stop("`obs_time` must be a valid date, or NULL for a retrospective fit.",
+      call. = FALSE
+    )
+  }
+  rep_len(obs_time, n)
 }
