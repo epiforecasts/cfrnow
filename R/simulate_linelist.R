@@ -48,7 +48,7 @@ simulate_linelist <- function(n = 200, cfr = 0.5, delay, recovery = NULL,
   # Sub-day onset offset: true onset is uniform within its recorded day.
   onset_frac <- stats::runif(n)
 
-  otd <- sample_delay(n, delay)
+  otd <- sample_delay(n, delay, onset_frac)
   death_date <- as.Date(rep(NA, n))
   # Event day = floor of the continuous onset-plus-delay time, so day-level
   # delays are a genuine doubly-interval-censored draw.
@@ -56,7 +56,7 @@ simulate_linelist <- function(n = 200, cfr = 0.5, delay, recovery = NULL,
   out <- data.frame(onset_date = onset, death_date = death_date)
 
   if (!is.null(recovery)) {
-    otr <- sample_delay(n, recovery)
+    otr <- sample_delay(n, recovery, onset_frac)
     recovery_date <- as.Date(rep(NA, n))
     recovery_date[!fatal] <-
       onset[!fatal] + floor(onset_frac[!fatal] + otr[!fatal])
@@ -68,14 +68,16 @@ simulate_linelist <- function(n = 200, cfr = 0.5, delay, recovery = NULL,
 #' Draw delays from a distspec distribution with fixed parameters
 #'
 #' Used by [simulate_linelist()] for the onset-to-death and onset-to-recovery
-#' delays. A delay with a `max` is drawn from its truncated form, matching the
-#' likelihood [fit_cfr()] uses for a bounded delay. Errors if any parameter is
-#' a prior rather than a fixed number.
+#' delays. A delay with a `max` is drawn from its truncated form: the caller
+#' records `floor(onset_frac + delay)` days, and the bound applies to that
+#' recorded delay, as it does in the likelihood [fit_cfr()] uses. Errors if any
+#' parameter is a prior rather than a fixed number.
 #' @param n Number of delays to draw.
 #' @param delay A distspec delay distribution with fixed parameters.
+#' @param onset_frac Sub-day onset offset of each case, in `[0, 1)`.
 #' @return A numeric vector of `n` delays (days).
 #' @noRd
-sample_delay <- function(n, delay) {
+sample_delay <- function(n, delay, onset_frac = 0) {
   fam <- get_distribution(delay)
   pars <- get_parameters(delay)[natural_params(delay)]
   if (!all(vapply(pars, is.numeric, logical(1)))) {
@@ -105,6 +107,10 @@ sample_delay <- function(n, delay) {
     )
   }
   delay_max <- .delay_max(delay)
-  upper <- if (is.infinite(delay_max)) 1 else d$p(delay_max, d$a, d$b)
+  upper <- if (is.infinite(delay_max)) {
+    1
+  } else {
+    d$p(delay_max - onset_frac, d$a, d$b)
+  }
   d$q(stats::runif(n, 0, upper), d$a, d$b)
 }
