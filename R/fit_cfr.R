@@ -124,9 +124,10 @@ fit_cfr <- function(data,
     )
     formula <- .rename_cfr_formula(formula)
   }
-  # Kept so posterior-predictive checks can replay the real-time truncation;
-  # NA (retrospective) means every case is fully followed up.
+  # Kept so posterior-predictive checks can replay the real-time truncation:
+  # how long each case was watched, which is infinite in a retrospective fit.
   obs_time <- if (inherits(data, "cfrnow_data")) data$obs_time else as.Date(NA)
+  follow_up <- if (inherits(data, "cfrnow_data")) data$cases$follow_up else NULL
   cure <- as_epidist_cure_model(data)
   dd <- .delay_family_prior(delay, main = TRUE)
   dfam <- dd$family
@@ -156,12 +157,14 @@ fit_cfr <- function(data,
     attr(cure, "loss_parts") <- loss$parts
     attr(cure, "loss_dpars") <- loss$dpars
     prior <- c(prior, loss$prior)
-  } else {
-    # a lost case explains an unresolved one, so the bounds only bite without it
-    .assert_within_max(
-      cure, dd$max, if (use_recovery) attr(cure, "recovery_max")
-    )
   }
+  # A recorded delay outside the bound is impossible whatever happens to the
+  # cases with no outcome; being lost is what lets one of those outlive the
+  # bound, so only that check gives way to `loss_prior`.
+  .assert_within_max(
+    cure, dd$max, if (use_recovery) attr(cure, "recovery_max"),
+    unresolved = !use_loss
+  )
   fit <- epidist::epidist(cure,
     formula = formula, family = dfam,
     prior = prior, merge_priors = FALSE, ...
@@ -197,6 +200,7 @@ fit_cfr <- function(data,
     delay_max = dd$max,
     recovery_max = if (use_recovery) attr(cure, "recovery_max") else Inf,
     obs_time = obs_time,
+    follow_up = follow_up[used_rows],
     onset = if ("onset" %in% names(cure)) cure$onset[used_rows] else NULL
   )
   class(fit) <- c("cfrnow_fit", class(fit))
@@ -236,9 +240,13 @@ fit_cfr <- function(data,
 #' @param cure An `epidist_cure_model`.
 #' @param delay_max,recovery_max Upper bounds of the death and recovery delays;
 #'   `Inf` (or `NULL`) when unbounded.
+#' @param unresolved Whether to check the cases with no outcome. A fit that
+#'   models loss to follow-up explains those, so only the recorded delays are
+#'   checked.
 #' @return `TRUE`, invisibly.
 #' @noRd
-.assert_within_max <- function(cure, delay_max, recovery_max = NULL) {
+.assert_within_max <- function(cure, delay_max, recovery_max = NULL,
+                               unresolved = TRUE) {
   recovery_max <- recovery_max %||% Inf
   # primarycensored rejects a delay whose secondary window closes past the
   # bound, so the usable range is y + swindow <= max
@@ -260,6 +268,9 @@ fit_cfr <- function(data,
       "probability. Raise the max, or drop those records as data errors.",
       call. = FALSE
     )
+  }
+  if (!unresolved) {
+    return(invisible(TRUE))
   }
   # A censored case must still be able to resolve: it needs at least one of the
   # outcomes it could still have to remain possible beyond its follow-up.
