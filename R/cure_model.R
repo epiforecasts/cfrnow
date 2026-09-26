@@ -160,14 +160,14 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
 # Template holes for the recovery half of a two-outcome fit: its own family's
 # parameter declarations, distribution id, and native reparameterisation
 # (r-prefixed to match the recovery dpars rmu, rsigma / rshape).
-# A delay's upper truncation as Stan code. A bounded delay truncates at
-# `max + 1` so a recorded delay of `max` days, whose secondary window closes a
-# day later, is still inside the support.
+# A delay's upper truncation as Stan code. distspec truncates a delay at its
+# `max`, giving recorded delays of 0 to `max - 1` days, so the likelihood
+# normalises over the same support.
 .stan_upper <- function(delay_max) {
   if (is.null(delay_max) || is.infinite(delay_max)) {
     return("positive_infinity()")
   }
-  sprintf("%.8f", delay_max + 1)
+  sprintf("%.8f", delay_max)
 }
 
 .recovery_holes <- function(family, recovery_family, recovery_dpars,

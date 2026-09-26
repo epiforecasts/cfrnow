@@ -97,6 +97,14 @@ test_that(".assert_within_max rejects data outside a bounded delay", {
   expect_error(.assert_within_max(cure, 30, Inf), "1 death\\(s\\)")
   expect_error(.assert_within_max(cure, Inf, 5), "1 recovery\\(ies\\)")
 
+  # a delay whose secondary window closes past the bound is rejected too: the
+  # 40-day death needs a max of 41, and a wider secondary window needs more
+  expect_true(.assert_within_max(cure, 41, 95))
+  expect_error(.assert_within_max(cure, 40, 95), "1 death\\(s\\)")
+  wide <- cure
+  wide$swindow <- 2
+  expect_error(.assert_within_max(wide, 41, 95), "1 death\\(s\\)")
+
   # a censored case beyond every bound cannot resolve in a two-outcome fit
   expect_error(.assert_within_max(cure, 60, 60), "still unresolved")
   # death-only: an unresolved case is simply a survivor, whatever its follow-up

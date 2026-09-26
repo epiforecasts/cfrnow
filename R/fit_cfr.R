@@ -14,11 +14,13 @@
 #' low probability, `Beta(6.6, 13.4)` suits a high-fatality pathogen).
 #'
 #' A delay's `max` truncates it: the likelihood renormalises the distribution
-#' over `[0, max]` days. The estimated parameters still describe the untruncated
-#' family, which is what `summary()` reports as `delay_mean` and `delay_sd`. A
-#' recorded delay past the bound, or a case unresolved for longer than every
-#' bound that could still apply to it, has zero probability under such a model,
-#' so `fit_cfr()` stops rather than letting the sampler fail.
+#' over `[0, max)` days, matching how \pkg{distspec} discretises the same
+#' object, so a delay recorded as `max` days or longer has no probability. The
+#' estimated parameters still describe the untruncated family, which is what
+#' `summary()` reports as `delay_mean` and `delay_sd`. A recorded delay outside
+#' the bound, or a case unresolved for as long as every bound that could still
+#' apply to it, cannot come from such a model, so `fit_cfr()` stops rather than
+#' letting the sampler fail.
 #'
 #' The model is fitted through [epidist::epidist()], so covariates (or a smooth
 #' time effect) can be put on `prob` or the delay through `formula`, e.g.
@@ -37,7 +39,8 @@
 #'   ([distspec::LogNormal()], [distspec::Gamma()] or [distspec::Weibull()])
 #'   whose native parameters are fixed numbers or `Normal()` priors. A `max`
 #'   (e.g. `LogNormal(Normal(2.4, 0.2), Normal(0.5, 0.15), max = 30)`) truncates
-#'   the delay there, so the model gives no probability to a longer delay.
+#'   the delay there, as it does everywhere else in \pkg{distspec}: recorded
+#'   delays then run from 0 to `max - 1` days.
 #' @param prob_prior Prior on `prob` as a [distspec::Beta()]. Defaults to
 #'   `Beta(1, 1)`.
 #' @param recovery_delay Optional onset-to-recovery delay (same form as `delay`)
@@ -190,22 +193,24 @@ fit_cfr <- function(data,
 #' @noRd
 .assert_within_max <- function(cure, delay_max, recovery_max = NULL) {
   recovery_max <- recovery_max %||% Inf
+  # primarycensored rejects a delay whose secondary window closes past the
+  # bound, so the usable range is y + swindow <= max
   too_long <- function(code, mx) {
-    sum(cure$outcome == code & cure$y > mx)
+    sum(cure$outcome == code & cure$y + cure$swindow > mx)
   }
   n_death <- too_long(.CURE_DEATH, delay_max)
   if (n_death > 0) {
-    stop(n_death, " death(s) with an onset-to-death delay longer than the ",
-      "delay's max (", delay_max, " days). Raise the max, or drop those ",
-      "records as data errors.",
+    stop(n_death, " death(s) with an onset-to-death delay that the delay's ",
+      "max (", delay_max, " days) gives no probability. Raise the max, or ",
+      "drop those records as data errors.",
       call. = FALSE
     )
   }
   n_recovery <- too_long(.CURE_RECOVERY, recovery_max)
   if (n_recovery > 0) {
-    stop(n_recovery, " recovery(ies) with an onset-to-recovery delay longer ",
-      "than the recovery delay's max (", recovery_max, " days). Raise the ",
-      "max, or drop those records as data errors.",
+    stop(n_recovery, " recovery(ies) with an onset-to-recovery delay that ",
+      "the recovery delay's max (", recovery_max, " days) gives no ",
+      "probability. Raise the max, or drop those records as data errors.",
       call. = FALSE
     )
   }
@@ -217,11 +222,11 @@ fit_cfr <- function(data,
     # death-only: an unresolved case may always be a survivor
     Inf
   }
-  n_cens <- sum(cure$outcome == .CURE_CENSORED & cure$y > unresolved_max)
+  n_cens <- sum(cure$outcome == .CURE_CENSORED & cure$y >= unresolved_max)
   if (n_cens > 0) {
-    stop(n_cens, " case(s) still unresolved after longer than the delays' ",
-      "max (", unresolved_max, " days), which the model gives zero ",
-      "probability. Drop them, or record them as resolved non-deaths.",
+    stop(n_cens, " case(s) still unresolved at or past the delays' max (",
+      unresolved_max, " days), which the model gives zero probability. ",
+      "Drop them, or record them as resolved non-deaths.",
       call. = FALSE
     )
   }

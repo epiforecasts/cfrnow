@@ -120,8 +120,8 @@ test_that("a delay max truncates the generated lpmf", {
   bounded <- cure_lpmf(stancode_for(
     cure, LogNormal(meanlog = 2.41, sdlog = 0.51, max = 30)
   ))
-  # the delay truncates at max + 1, the end of the last delay's secondary window
-  expect_true(grepl("31.00000000", bounded, fixed = TRUE))
+  # distspec truncates at max, so recorded delays run from 0 to max - 1
+  expect_true(grepl("30.00000000", bounded, fixed = TRUE))
   expect_false(grepl("positive_infinity()", bounded, fixed = TRUE))
 })
 
