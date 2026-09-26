@@ -55,7 +55,8 @@
 #'   `recovery_width`, `n_cens`, `censor_time`, `censor_width`, `n_resolved`,
 #'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`) and a `cases`
 #'   data frame with one row per kept case (`y`, `outcome`, `pwindow`,
-#'   `swindow`, `onset` and any requested `covariates`), which
+#'   `swindow`, `onset`, `follow_up` (days watched, `Inf` in a retrospective
+#'   fit) and any requested `covariates`), which
 #'   [as_epidist_cure_model()] turns into the model frame.
 #' @examples
 #' ll <- simulate_linelist(n = 50, delay = LogNormal(2.4, 0.5))
@@ -202,10 +203,15 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   y_case[censored_case] <- as.integer(pmax(
     follow_up_end[censored_case] - onset_lo_day[censored_case], 0
   ))
+  # Days of follow-up per kept case, from the start of its onset window to
+  # whichever of the cut-off and its last contact comes first. The model reads
+  # this as the censored case's `y`; posterior-predictive checks replay it for
+  # every case, so a case watched for less time replicates for less time.
   cases <- data.frame(
     y = y_case[keep], outcome = outcome_case[keep],
     pwindow = width[keep], swindow = rep_len(1L, sum(keep)),
-    onset = onset[keep]
+    onset = onset[keep],
+    follow_up = pmax(follow_up_end[keep] - onset_lo_day[keep], 0)
   )
   for (cov in covariates) cases[[cov]] <- linelist[[cov]][keep]
 

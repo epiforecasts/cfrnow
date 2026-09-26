@@ -146,13 +146,18 @@
     rsc <- lp(rscale_dpar)
   }
 
-  # Per-case follow-up horizon: days from the recorded onset to the cut-off. NA
-  # obs_time (a retrospective fit) means no truncation.
-  obs_time <- object$cfrnow$obs_time %||% as.Date(NA)
-  h <- if (is.na(obs_time)) {
-    rep(Inf, nrow(d))
-  } else {
-    as.numeric(as.Date(obs_time) - as.Date(onset)) + 1
+  # Per-case follow-up horizon, as prepare_cfr_data() measured it: days from
+  # the start of the onset window to the cut-off, or to the case's last contact
+  # when that comes first. A retrospective fit watched every case indefinitely.
+  h <- object$cfrnow$follow_up
+  if (is.null(h)) {
+    # a fit from before the follow-up was stored: fall back to the cut-off
+    obs_time <- object$cfrnow$obs_time %||% as.Date(NA)
+    h <- if (is.na(obs_time)) {
+      rep(Inf, nrow(d))
+    } else {
+      as.numeric(as.Date(obs_time) - as.Date(onset)) + 1
+    }
   }
 
   observed <- list(
