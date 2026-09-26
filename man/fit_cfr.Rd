@@ -9,6 +9,7 @@ fit_cfr(
   delay = LogNormal(meanlog = Normal(2, 1), sdlog = Normal(0.5, 0.3)),
   prob_prior = Beta(1, 1),
   recovery_delay = NULL,
+  loss_prior = NULL,
   formula = mu ~ 1,
   ...,
   cfr_prior = lifecycle::deprecated()
@@ -30,6 +31,14 @@ delays then run from 0 to \code{max - 1} days.}
 
 \item{recovery_delay}{Optional onset-to-recovery delay (same form as \code{delay})
 for the two-outcome fit; may use a different family from \code{delay}.}
+
+\item{loss_prior}{Optional prior on the probability that a case is lost to
+follow-up, so its outcome never reaches the line list. A
+\code{\link[distspec:Beta]{distspec::Beta()}} gives one probability whatever the outcome; a list with
+\code{death} and \code{recovery} entries, each a \code{Beta()} or a fixed number, gives
+them their own (e.g. \code{list(death = 0, recovery = Beta(1, 1))} where every
+death is recorded). \code{NULL} (the default) assumes every outcome is
+eventually recorded.}
 
 \item{formula}{A \code{brms} formula for the delay location \code{mu} and, optionally,
 \code{prob} (\code{prob ~ ...}). Defaults to \code{mu ~ 1}. \code{prob_prior} normally lands on
@@ -62,6 +71,28 @@ the whole delay gives the Ghani/Nishiura estimator) or a \code{Normal()} prior
 delay distribution. \code{prob_prior} is a \code{Beta()}; it matters because \code{prob} is
 weakly identified early on (\code{Beta(1, 1)} is uniform, \code{Beta(1, 9)} favours a
 low probability, \code{Beta(6.6, 13.4)} suits a high-fatality pathogen).
+
+\code{loss_prior} adds a probability that a case is lost to follow-up, so its
+outcome never reaches the line list. A recorded death or recovery then also
+says the case was kept, and a case still unresolved at the cut-off was
+either lost or genuinely unresolved. Without it, a case unresolved far
+longer than the delays allow has almost no probability, which pulls the
+delay's tail out or stops the sampler from starting.
+
+How much the data can say depends on whether loss follows the outcome. One
+probability for both (\code{loss_prior = Beta(1, 1)}) is identified by the
+recorded deaths, the recorded recoveries and the cases that stay unresolved,
+and it assumes a lost case's CFR matches everyone else's. Fixing one half
+(\code{list(death = 0, recovery = Beta(1, 1))}, where a death is always written
+down and a discharge may not be) is identified too. Estimating both asks for
+one number more than the data holds, so the priors decide the split and
+\code{fit_cfr()} warns; treat that as a sensitivity analysis. A death-only fit
+identifies loss weakly whichever form is used, because the recorded
+recoveries are what separate it from the outcome probability.
+
+Where a case has a date it was last known unresolved, censoring it there
+through \code{\link[=prepare_cfr_data]{prepare_cfr_data()}}'s \code{last_contact_date} uses that timing instead
+of inferring the loss.
 
 A delay's \code{max} truncates it: the likelihood renormalises the distribution
 over \verb{[0, max)} days, matching how \pkg{distspec} discretises the same

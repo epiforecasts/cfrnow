@@ -111,3 +111,51 @@ test_that(".assert_within_max rejects data outside a bounded delay", {
   attr(cure, "use_recovery") <- FALSE
   expect_true(.assert_within_max(cure, 60, NULL))
 })
+
+test_that(".assert_loss_identified needs unresolved cases", {
+  shared <- .loss_spec(Beta(1, 1))
+  both <- .loss_spec(list(death = Beta(1, 9), recovery = Beta(1, 3)))
+  one_sided <- .loss_spec(list(death = 0, recovery = Beta(1, 1)))
+
+  resolved <- as_epidist_cure_model(data.frame(
+    y = c(5L, 0L), outcome = c(.CURE_DEATH, .CURE_RESOLVED),
+    pwindow = 1, swindow = 1
+  ))
+  expect_error(
+    .assert_loss_identified(resolved, TRUE, shared), "still unresolved"
+  )
+
+  censored <- as_epidist_cure_model(data.frame(
+    y = c(5L, 20L), outcome = c(.CURE_DEATH, .CURE_CENSORED),
+    pwindow = 1, swindow = 1
+  ))
+  expect_true(.assert_loss_identified(censored, TRUE, shared))
+  expect_true(.assert_loss_identified(censored, TRUE, one_sided))
+
+  expect_warning(
+    .assert_loss_identified(censored, FALSE, shared), "weakly identified"
+  )
+  # both halves estimated: the data cannot say which outcome goes missing
+  expect_warning(
+    .assert_loss_identified(censored, TRUE, both), "cannot tell apart"
+  )
+})
+
+test_that("a bounded recorded delay is rejected even when loss is modelled", {
+  cure <- as_epidist_cure_model(data.frame(
+    y = c(5L, 40L, 90L),
+    outcome = c(.CURE_DEATH, .CURE_DEATH, .CURE_CENSORED),
+    pwindow = 1, swindow = 1
+  ))
+  # being lost explains a case that outlives the bound with no outcome, but
+  # never a death recorded past it
+  expect_error(
+    .assert_within_max(cure, 30, Inf, unresolved = FALSE), "1 death\\(s\\)"
+  )
+  expect_true(.assert_within_max(cure, 41, Inf, unresolved = FALSE))
+  attr(cure, "use_recovery") <- TRUE
+  expect_error(
+    .assert_within_max(cure, 41, 41, unresolved = TRUE), "still unresolved"
+  )
+  expect_true(.assert_within_max(cure, 41, 41, unresolved = FALSE))
+})

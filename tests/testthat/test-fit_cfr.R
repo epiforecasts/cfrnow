@@ -287,3 +287,123 @@ test_that("a `cfr ~ ...` formula is soft-deprecated and translated to `prob`", {
   fe <- brms::fixef(fit)
   expect_true("prob_grplow" %in% rownames(fe)) # translated, not cfr_grplow
 })
+
+test_that("a loss_prior recovers the loss probability and the delays", {
+  testthat::skip_if_not_installed("cmdstanr")
+  testthat::skip_if(
+    is.null(tryCatch(cmdstanr::cmdstan_version(), error = function(e) NULL)),
+    "cmdstan not installed"
+  )
+
+  set.seed(11)
+  ll <- simulate_linelist(
+    n = 1500, cfr = 0.4, delay = LogNormal(2.0, 0.5),
+    recovery = LogNormal(2.6, 0.4)
+  )
+  # a case lost to follow-up never has its outcome recorded
+  lost <- stats::runif(nrow(ll)) < 0.2
+  ll$death_date[lost] <- NA
+  ll$recovery_date[lost] <- NA
+  d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+
+  fit <- fit_cfr(d,
+    delay = LogNormal(Normal(2.0, 0.2), Normal(0.5, 0.15)),
+    recovery_delay = LogNormal(Normal(2.6, 0.2), Normal(0.4, 0.15)),
+    loss_prior = Beta(1, 1),
+    backend = "cmdstanr", chains = 2, iter = 1000, refresh = 0, seed = 11
+  )
+  s <- summary(fit)
+  q <- function(x) s[s$quantity == x, c("q2.5", "q97.5")]
+
+  expect_true(isTRUE(fit$cfrnow$use_loss))
+  expect_true("loss" %in% s$quantity)
+  expect_gt(q("loss")$q2.5, 0.1)
+  expect_lt(q("loss")$q97.5, 0.3)
+  # the CFR and the delay mean are recovered, which they are not if the lost
+  # cases are read as still unresolved
+  expect_lt(q("prob")$q2.5, 0.4)
+  expect_gt(q("prob")$q97.5, 0.4)
+  expect_lt(q("delay_mean")$q2.5, exp(2.0 + 0.5^2 / 2))
+  expect_gt(q("delay_mean")$q97.5, exp(2.0 + 0.5^2 / 2))
+  expect_true(all(s$rhat < 1.05))
+})
+
+test_that("a loss_prior needs unresolved cases and warns without recoveries", {
+  d <- prepare_cfr_data(
+    simulate_linelist(n = 100, cfr = 0.4, delay = LogNormal(2.4, 0.5)),
+    obs_time = NULL
+  )
+  expect_error(
+    fit_cfr(d, loss_prior = Beta(1, 1)), "still unresolved"
+  )
+})
+
+test_that("cases unresolved far beyond the delays still sample", {
+  testthat::skip_if_not_installed("cmdstanr")
+  testthat::skip_if(
+    is.null(tryCatch(cmdstanr::cmdstan_version(), error = function(e) NULL)),
+    "cmdstan not installed"
+  )
+
+  set.seed(21)
+  ll <- simulate_linelist(
+    n = 400, cfr = 0.4, delay = Gamma(mean = 5, sd = 4),
+    recovery = Gamma(mean = 12, sd = 4)
+  )
+  # 30 cases whose outcome was never recorded, long after both delays run out
+  never <- sample(nrow(ll), 30)
+  ll$onset_date[never] <- min(ll$onset_date) - 90
+  ll$death_date[never] <- NA
+  ll$recovery_date[never] <- NA
+  d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date), max_delay = 90)
+
+  fit <- fit_cfr(d,
+    delay = Gamma(shape = Normal(1.6, 0.5), rate = Normal(0.3, 0.1)),
+    recovery_delay = Gamma(shape = Normal(9, 3), rate = Normal(0.75, 0.3)),
+    loss_prior = Beta(1, 1),
+    backend = "cmdstanr", chains = 2, iter = 1000, refresh = 0, seed = 21
+  )
+  s <- summary(fit)
+  # without the log-scale survival these cases stall every chain at its start
+  expect_true(all(s$rhat < 1.05))
+  expect_true(all(s$ess_bulk > 100))
+  expect_gt(s[s$quantity == "loss", "q50"], 0.02)
+})
+
+test_that("an outcome-specific loss_prior recovers a recovery-only loss", {
+  testthat::skip_if_not_installed("cmdstanr")
+  testthat::skip_if(
+    is.null(tryCatch(cmdstanr::cmdstan_version(), error = function(e) NULL)),
+    "cmdstan not installed"
+  )
+
+  set.seed(31)
+  ll <- simulate_linelist(
+    n = 1500, cfr = 0.4, delay = LogNormal(2.0, 0.5),
+    recovery = LogNormal(2.6, 0.4)
+  )
+  # every death is recorded; a quarter of recoveries never are
+  drop <- !is.na(ll$recovery_date) & stats::runif(nrow(ll)) < 0.25
+  ll$recovery_date[drop] <- NA
+  d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+  args <- list(
+    delay = LogNormal(Normal(2.0, 0.2), Normal(0.5, 0.15)),
+    recovery_delay = LogNormal(Normal(2.6, 0.2), Normal(0.4, 0.15)),
+    backend = "cmdstanr", chains = 2, iter = 1000, refresh = 0, seed = 31
+  )
+
+  one_sided <- do.call(fit_cfr, c(
+    list(d), args, list(loss_prior = list(death = 0, recovery = Beta(1, 1)))
+  ))
+  s <- summary(one_sided)
+  expect_true("loss_recovery" %in% s$quantity)
+  expect_false("loss_death" %in% s$quantity)
+  expect_lt(s[s$quantity == "prob", "q2.5"], 0.4)
+  expect_gt(s[s$quantity == "prob", "q97.5"], 0.4)
+  expect_gt(s[s$quantity == "loss_recovery", "q50"], 0.15)
+
+  # assuming the same loss for both outcomes instead reads the missing
+  # recoveries as deaths that have not happened yet
+  shared <- do.call(fit_cfr, c(list(d), args, list(loss_prior = Beta(1, 1))))
+  expect_gt(summary(shared)[1, "q2.5"], 0.4)
+})

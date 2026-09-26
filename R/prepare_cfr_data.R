@@ -18,6 +18,13 @@
 #' recovery dated before onset. In real time, cases whose onset falls after
 #' `obs_time` are not yet known and are excluded with a message.
 #'
+#' @param last_contact_date Optional column name in `linelist` holding the last
+#'   date a case was known to be alive and unresolved (a transfer, a discharge
+#'   against advice, the last ward note). A case with no recorded outcome is
+#'   censored there instead of at `obs_time`, so the follow-up the model sees
+#'   stops where the data do. `NA` means followed to the cut-off, and the column
+#'   is ignored for a case whose death or recovery was recorded, which was
+#'   followed until that happened.
 #' @param linelist A data frame with an `onset_date` column, an optional
 #'   `onset_lower`/`onset_upper` onset window, a `death_date` column (`NA` for
 #'   cases that have not died; use the date the death was notified, i.e. when it
@@ -50,7 +57,8 @@
 #'   `recovery_width`, `n_cens`, `censor_time`, `censor_width`, `n_resolved`,
 #'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`) and a `cases`
 #'   data frame with one row per kept case (`y`, `outcome`, `pwindow`,
-#'   `swindow`, `onset` and any requested `covariates`), which
+#'   `swindow`, `onset`, `follow_up` (days watched, `Inf` in a retrospective
+#'   fit) and any requested `covariates`), which
 #'   [as_epidist_cure_model()] turns into the model frame.
 #' @examples
 #' ll <- simulate_linelist(n = 50, delay = LogNormal(2.4, 0.5))
@@ -58,7 +66,7 @@
 #' @export
 prepare_cfr_data <- function(linelist, obs_time = NULL,
                              covariates = character(), t0 = NULL,
-                             max_delay = 60) {
+                             max_delay = 60, last_contact_date = NULL) {
   if (!"onset_date" %in% names(linelist)) {
     stop("`linelist` needs an `onset_date` column.", call. = FALSE)
   }
@@ -77,6 +85,17 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   death <- as.Date(linelist$death_date)
   no_recovery <- as.Date(rep(NA, nrow(linelist)))
   recovery <- optional_date_col("recovery_date", no_recovery)
+  last_contact <- if (is.null(last_contact_date)) {
+    no_recovery
+  } else {
+    if (!last_contact_date %in% names(linelist)) {
+      stop("`last_contact_date` (", last_contact_date, ") is not a column of ",
+        "`linelist`.",
+        call. = FALSE
+      )
+    }
+    as.Date(linelist[[last_contact_date]])
+  }
 
   # NULL means a retrospective fit. Store the cut-off as a typed Date so
   # downstream code (and the fit) always sees a Date; reject a stray NA so it is
@@ -125,6 +144,18 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
     message(n_future, " case(s) with onset after the cut-off excluded")
   }
 
+  # Follow-up runs to the end of the cut-off day, or to the end of the last day
+  # the case was known unresolved when that comes first. A case whose outcome
+  # was recorded was followed until it happened, whatever a last-contact column
+  # says: such a column usually carries the outcome's own date, which would
+  # otherwise cut the case's follow-up back to the delay it just reported.
+  last_contact_day <- as.numeric(last_contact - t0)
+  follow_up_end <- rep(obs_offset + 1, nrow(linelist))
+  has_contact <- !is.na(last_contact_day) & !is_death & !recovered
+  follow_up_end[has_contact] <- pmin(
+    follow_up_end[has_contact], last_contact_day[has_contact] + 1
+  )
+
   keep <- !bad & !future
   is_death <- is_death & keep
   recovered <- recovered & keep
@@ -137,18 +168,22 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   recovery_delay <- as.integer(round((recovery_day - onset_lo_day)[recovered]))
   recovery_width <- width[recovered]
 
+  # A case with a last-contact date stops being observed there, so it is
+  # censored even in a retrospective fit, where the other non-deaths count as
+  # resolved.
+  lost <- has_contact & is_surv & !recovered
   if (retrospective) {
     # Non-deaths with no recorded recovery are resolved but untimed.
-    n_resolved <- sum(is_surv & !recovered)
-    censor_time <- numeric(0)
-    censor_width <- numeric(0)
+    n_resolved <- sum(is_surv & !recovered & !lost)
+    censor_time <- pmax(follow_up_end[lost] - onset_lo_day[lost], 0)
+    censor_width <- width[lost]
   } else {
     # Non-deaths not yet recovered are right-censored. A death (or recovery)
     # dated on day `obs_offset` still counts, so the observation horizon is the
     # end of that day, `obs_offset + 1`; a survivor's follow-up runs to there.
     n_resolved <- 0L
     cens <- is_surv & !recovered
-    censor_time <- pmax(obs_offset + 1 - onset_lo_day[cens], 0)
+    censor_time <- pmax(follow_up_end[cens] - onset_lo_day[cens], 0)
     censor_width <- width[cens]
   }
 
@@ -166,17 +201,22 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   y_case[recovered] <-
     as.integer(round((recovery_day - onset_lo_day)[recovered]))
   surv_untimed <- is_surv & !recovered
-  if (retrospective) {
-    outcome_case[surv_untimed] <- .CURE_RESOLVED
-  } else {
-    outcome_case[surv_untimed] <- .CURE_CENSORED
-    y_case[surv_untimed] <-
-      as.integer(pmax(obs_offset + 1 - onset_lo_day[surv_untimed], 0))
-  }
+  censored_case <- if (retrospective) lost else surv_untimed
+  resolved_case <- surv_untimed & !censored_case
+  outcome_case[resolved_case] <- .CURE_RESOLVED
+  outcome_case[censored_case] <- .CURE_CENSORED
+  y_case[censored_case] <- as.integer(pmax(
+    follow_up_end[censored_case] - onset_lo_day[censored_case], 0
+  ))
+  # Days of follow-up per kept case, from the start of its onset window to
+  # whichever of the cut-off and its last contact comes first. The model reads
+  # this as the censored case's `y`; posterior-predictive checks replay it for
+  # every case, so a case watched for less time replicates for less time.
   cases <- data.frame(
     y = y_case[keep], outcome = outcome_case[keep],
     pwindow = width[keep], swindow = rep_len(1L, sum(keep)),
-    onset = onset[keep]
+    onset = onset[keep],
+    follow_up = pmax(follow_up_end[keep] - onset_lo_day[keep], 0)
   )
   for (cov in covariates) cases[[cov]] <- linelist[[cov]][keep]
 
