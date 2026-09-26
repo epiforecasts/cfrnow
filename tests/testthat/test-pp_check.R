@@ -171,3 +171,29 @@ test_that("pp_check_cfr works when a formula covariate has missing values", {
 
   expect_s3_class(pp_check_cfr(fit, "counts", ndraws = 50), "ggplot")
 })
+
+test_that("replicates work when the delay runs far past a tight bound", {
+  # A truncated delay only constrains the pmf on 0:(max - 1), so the posterior
+  # runs to large locations: draws whose latent bulk sits well past the bound
+  # are ordinary, and the replicate has to handle them.
+  set.seed(7)
+  nd <- 30
+  n <- 200
+  far <- .cfr_ppc_stats(
+    matrix(1, nd, n), matrix(4.09, nd, n), matrix(0.5, nd, n), rep(Inf, n),
+    "lognormal", FALSE, NULL, NULL, NULL,
+    list(deaths = 1L, recoveries = NA_integer_, death_delays = 1),
+    mx = 6
+  )
+  expect_equal(nrow(far$delays), nd * n)
+  expect_lte(max(far$delays$delay), 5)
+
+  # and they follow the distribution the likelihood gives them
+  empirical <- as.numeric(table(factor(far$delays$delay, levels = 0:5)))
+  empirical <- empirical / sum(empirical)
+  model <- primarycensored::dprimarycensored(
+    0:5, stats::plnorm,
+    pwindow = 1, swindow = 1, D = 6, meanlog = 4.09, sdlog = 0.5
+  )
+  expect_lt(sum(abs(empirical - model)) / 2, 0.02)
+})

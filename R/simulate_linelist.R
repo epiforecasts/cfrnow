@@ -102,25 +102,53 @@ sample_delay <- function(n, delay) {
       call. = FALSE
     )
   }
-  delay_max <- .delay_max(delay)
+  .draw_recorded(n, d, .delay_max(delay))
+}
+
+#' Draw recorded whole-day delays under a bound
+#'
+#' A recorded delay is `floor(onset_frac + delay)`, and a bound applies to that
+#' sum, so offset and delay have to be drawn from their joint distribution
+#' conditioned on staying inside it. Conditioning the delay alone would leave
+#' the offset uniform, where the conditioning tilts it towards the early part
+#' of the day by a factor proportional to `F(max - offset)`.
+#'
+#' The offset is therefore drawn from that tilted density, by rejection against
+#' its largest value, `F(max)`; the delay then follows by inverting its CDF
+#' over `[0, F(max - offset)]`. Acceptance depends only on how much of the
+#' delay's mass sits in the last day before the bound, never on how far the
+#' distribution runs past it, so a delay whose bulk is well beyond the bound
+#' costs no more than one whose bulk is inside.
+#'
+#' @param n Number of delays to draw.
+#' @param d A list of the family's quantile and distribution functions (`q`,
+#'   `p`) and its two parameters (`a`, `b`), each a scalar or a vector of `n`.
+#' @param delay_max The bound, or `Inf`.
+#' @return An integer-valued vector of `n` recorded delays (whole days).
+#' @noRd
+.draw_recorded <- function(n, d, delay_max) {
   frac <- stats::runif(n)
-  x <- d$q(stats::runif(n), d$a, d$b)
-  # Conditioning the delay alone on the bound would leave the offset uniform,
-  # where the likelihood tilts it; resample the pair instead, which conditions
-  # on the event the likelihood conditions on.
-  outside <- which(frac + x >= delay_max)
-  rounds <- 0L
-  while (length(outside) > 0) {
-    rounds <- rounds + 1L
-    if (rounds > 1000L) {
-      stop("the delay's `max` (", delay_max, " days) leaves almost no ",
-        "probability to draw from; raise it.",
-        call. = FALSE
-      )
-    }
-    frac[outside] <- stats::runif(length(outside))
-    x[outside] <- d$q(stats::runif(length(outside)), d$a, d$b)
-    outside <- outside[frac[outside] + x[outside] >= delay_max]
+  if (is.infinite(delay_max)) {
+    return(floor(frac + d$q(stats::runif(n), d$a, d$b)))
   }
-  floor(frac + x)
+  # a and b are one value, or one per draw
+  at <- function(v, i) if (length(v) == 1) v else v[i]
+  ceiling_mass <- d$p(delay_max, d$a, d$b)
+  if (any(ceiling_mass <= 0)) {
+    stop("the delay's `max` (", delay_max, " days) leaves it no probability; ",
+      "raise the max, or widen the delay.",
+      call. = FALSE
+    )
+  }
+  # Only the offsets still to be accepted are redrawn; testing the settled ones
+  # again would need every draw to accept at once, which never happens.
+  pending <- seq_len(n)
+  while (length(pending) > 0) {
+    frac[pending] <- stats::runif(length(pending))
+    accept <- stats::runif(length(pending)) * at(ceiling_mass, pending) <=
+      d$p(delay_max - frac[pending], at(d$a, pending), at(d$b, pending))
+    pending <- pending[!accept]
+  }
+  u <- stats::runif(n) * d$p(delay_max - frac, d$a, d$b)
+  floor(frac + d$q(u, d$a, d$b))
 }

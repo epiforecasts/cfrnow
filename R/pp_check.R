@@ -11,10 +11,9 @@
   n <- ncol(cfr)
   # Each family's draws come from its brms mu-form: mu is the delay's mean and
   # the second parameter is the family's own shape (sdlog for a lognormal).
-  # A recorded delay is the whole number of days from the recorded onset, so it
-  # pairs the sub-day onset offset with the delay; a bound applies to that sum,
-  # and the pair is resampled until it falls inside, which conditions on the
-  # event the likelihood conditions on.
+  # A recorded delay is the whole number of days from the recorded onset, so a
+  # bound applies to the onset offset and the delay together; .draw_recorded()
+  # draws them from the joint distribution the likelihood conditions on.
   draw_day <- function(loc_i, sc_i, family, delay_max) {
     d <- switch(family,
       lognormal = list(
@@ -33,24 +32,7 @@
         call. = FALSE
       )
     }
-    draw <- function(idx) d$q(stats::runif(length(idx)), d$a[idx], d$b[idx])
-    frac <- stats::runif(length(loc_i))
-    x <- draw(seq_along(loc_i))
-    outside <- which(frac + x >= delay_max)
-    rounds <- 0L
-    while (length(outside) > 0) {
-      rounds <- rounds + 1L
-      if (rounds > 1000L) {
-        stop("the delay's `max` (", delay_max, " days) leaves almost no ",
-          "probability to draw from; raise it.",
-          call. = FALSE
-        )
-      }
-      frac[outside] <- stats::runif(length(outside))
-      x[outside] <- draw(outside)
-      outside <- outside[frac[outside] + x[outside] >= delay_max]
-    }
-    floor(frac + x)
+    .draw_recorded(length(loc_i), d, delay_max)
   }
 
   counts <- vector("list", nd)
