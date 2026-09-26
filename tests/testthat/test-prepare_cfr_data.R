@@ -264,3 +264,34 @@ test_that("a case whose onset follows its own cut-off is excluded", {
   )
   expect_identical(nrow(d$cases), 1L)
 })
+
+test_that("the returned cut-off and follow-up line up with the kept cases", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-01", NA, "2026-01-02")),
+    death_date = as.Date(c(NA, NA, NA)),
+    cutoff = as.Date(c("2026-01-31", "2026-01-10", "2026-01-20"))
+  )
+  suppressWarnings(d <- prepare_cfr_data(ll, obs_time = "cutoff"))
+  # the middle row is unusable, so the cut-offs must skip it too
+  expect_identical(nrow(d$cases), 2L)
+  expect_identical(d$obs_time, as.Date(c("2026-01-31", "2026-01-20")))
+  expect_identical(d$obs_time, d$cases$obs_time)
+
+  # one cut-off for the whole line list still comes back as one date
+  suppressWarnings(one <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-31")))
+  expect_identical(one$obs_time, as.Date("2026-01-31"))
+})
+
+test_that("follow-up is measured from the onset window, not the onset date", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-01", NA)),
+    onset_lower = as.Date(c("2026-01-01", "2026-01-03")),
+    onset_upper = as.Date(c("2026-01-01", "2026-01-05")),
+    death_date = as.Date(c(NA, NA))
+  )
+  d <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-20"))
+  # a case kept on its window alone still has a follow-up the checks can use
+  expect_false(anyNA(d$cases$follow_up))
+  expect_identical(d$cases$follow_up, c(20, 18))
+  expect_identical(d$cases$follow_up, as.numeric(d$cases$y))
+})

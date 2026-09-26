@@ -240,7 +240,13 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
       n_recoveries = length(recovery_delay),
       cases = cases,
       t0 = t0,
-      obs_time = obs_time
+      # one per kept case, like every other per-case field here; a single
+      # cut-off for the whole line list stays a single date
+      obs_time = if (length(unique(obs_time[keep])) > 1) {
+        obs_time[keep]
+      } else {
+        obs_time[keep][1]
+      }
     ),
     class = "cfrnow_data"
   )
