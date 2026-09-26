@@ -28,7 +28,9 @@ two-outcome fit), and the distribution of the observed onset-to-death delays.
 The check reuses the fit's own posterior draws of the CFR and the delay, so
 it works for covariate and time-varying \code{prob ~ ...} fits as well as
 intercept-only ones. It needs the observation cut-off, which \code{\link[=fit_cfr]{fit_cfr()}}
-records when the data come from \code{\link[=prepare_cfr_data]{prepare_cfr_data()}}; a retrospective fit
+records when the data come from \code{\link[=prepare_cfr_data]{prepare_cfr_data()}}; each case's follow-up
+horizon is built from its own cut-off, so a per-case \code{obs_time} (e.g. one
+cut-off per reporting site) is replayed correctly. A retrospective fit
 (\code{obs_time = NULL}) has no truncation to replay, so every fatal case shows up
 as a death.
 
