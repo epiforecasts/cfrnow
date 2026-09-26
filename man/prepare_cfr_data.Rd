@@ -59,7 +59,9 @@ followed until that happened.}
 A \code{cfrnow_data} list with the aggregated model inputs (\code{n_death},
 \code{death_delay}, \code{death_width}, \code{n_recovery}, \code{recovery_delay},
 \code{recovery_width}, \code{n_cens}, \code{censor_time}, \code{censor_width}, \code{n_resolved},
-\code{n_cases}, \code{n_deaths}, \code{n_recoveries}, \code{t0}, \code{obs_time}) and a \code{cases}
+\code{n_cases}, \code{n_deaths}, \code{n_recoveries}, \code{t0}, \code{obs_time}, which is one date
+per kept case when the cut-offs differ and a single date when they do not)
+and a \code{cases}
 data frame with one row per kept case (\code{y}, \code{outcome}, \code{pwindow},
 \code{swindow}, \code{onset}, that case's \code{obs_time}, \code{follow_up} (days watched,
 \code{Inf} in a retrospective fit) and any requested \code{covariates}), which

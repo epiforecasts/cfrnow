@@ -57,7 +57,9 @@
 #' @return A `cfrnow_data` list with the aggregated model inputs (`n_death`,
 #'   `death_delay`, `death_width`, `n_recovery`, `recovery_delay`,
 #'   `recovery_width`, `n_cens`, `censor_time`, `censor_width`, `n_resolved`,
-#'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`) and a `cases`
+#'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`, which is one date
+#'   per kept case when the cut-offs differ and a single date when they do not)
+#'   and a `cases`
 #'   data frame with one row per kept case (`y`, `outcome`, `pwindow`,
 #'   `swindow`, `onset`, that case's `obs_time`, `follow_up` (days watched,
 #'   `Inf` in a retrospective fit) and any requested `covariates`), which
