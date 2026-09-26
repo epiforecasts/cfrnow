@@ -1,5 +1,10 @@
 # cfrnow (development version)
 
+* `prepare_cfr_data()`'s `obs_time` accepts a vector of per-case cut-offs, or
+  the name of a `linelist` column holding them, so a case reported by a site
+  that cut off earlier is judged against its own cut-off rather than the
+  latest one in the data. `pp_check_cfr()` replays each case's own cut-off
+  when building its follow-up horizon.
 * The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
   is a case fatality ratio only when the line list runs from onset to death; the
   same model can fit a hospital fatality ratio or other outcome probability for a
