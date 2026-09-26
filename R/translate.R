@@ -148,7 +148,9 @@
 
 # The upper bound of a distspec delay, as a positive whole number of days, or
 # Inf when the delay is unbounded. The bound is the longest delay the model can
-# produce, so the likelihood truncates the delay distribution there.
+# produce, so the likelihood truncates the delay distribution there. distspec
+# rounds a fractional bound up when it discretises, so do the same here and
+# keep one delay object to one support.
 .delay_max <- function(delay) {
   # read the bound off the object: max() on a delay with priors resolves the
   # same value but messages about the uncertain parameters on the way
@@ -159,7 +161,7 @@
   if (mx <= 0) {
     stop("a delay's `max` must be a positive number of days.", call. = FALSE)
   }
-  mx
+  ceiling(mx)
 }
 
 # A Normal(m, s) on logit(prob) whose induced mean/sd on the [0, 1] scale match

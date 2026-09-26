@@ -133,4 +133,11 @@ test_that(".delay_max reads a bound without resolving uncertain parameters", {
     14
   )
   expect_error(.delay_max(LogNormal(2.4, 0.5, max = 0)), "positive number")
+
+  # distspec rounds a fractional bound up when it discretises, so the fit has
+  # to agree or the same object means two supports
+  expect_identical(.delay_max(LogNormal(2.4, 0.5, max = 34.5)), 35)
+  expect_identical(
+    length(get_pmf(discretise(LogNormal(2.4, 0.5, max = 34.5)))), 35L
+  )
 })
