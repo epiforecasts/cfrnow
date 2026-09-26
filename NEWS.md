@@ -1,5 +1,11 @@
 # cfrnow (development version)
 
+* The survival term for an unresolved case is computed on the log scale
+  (`primarycensored_lcdf()` and `log1m_exp()`). A case followed up for much
+  longer than the delay rounds the CDF to 1, where the previous `log1m()` form
+  rejected every draw with `log1m: x is 1, but must be less than or equal to
+  1`, leaving the chains stuck at their starting values.
+
 * The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
   is a case fatality ratio only when the line list runs from onset to death; the
   same model can fit a hospital fatality ratio or other outcome probability for a
