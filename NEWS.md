@@ -3,7 +3,7 @@
 * A delay's `max` is now honoured: `fit_cfr()` truncates the fitted delay at
   the bound (`LogNormal(..., max = 30)`), `simulate_linelist()` draws from the
   truncated delay, and `pp_check_cfr()` replicates from it. Previously the bound
-  was silently ignored. The bound applies to the recorded delay, so it runs from
+  was silently ignored. The bound applies to the recorded delay: it runs from
   0 to `max - 1` days, the same support distspec gives the delay object.
   `fit_cfr()` also stops, with a message naming the cases, when a recorded delay
   or an unresolved case falls outside the bounds and would otherwise fail inside
