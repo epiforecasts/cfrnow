@@ -13,6 +13,12 @@
 #' weakly identified early on (`Beta(1, 1)` is uniform, `Beta(1, 9)` favours a
 #' low probability, `Beta(6.6, 13.4)` suits a high-fatality pathogen).
 #'
+#' A delay's `max` truncates it: the likelihood renormalises the distribution
+#' over `[0, max)` days, matching how \pkg{distspec} discretises the same
+#' object, so a delay recorded as `max` days or longer has no probability. The
+#' estimated parameters still describe the untruncated family, which is what
+#' `summary()` reports as `delay_mean` and `delay_sd`.
+#'
 #' The model is fitted through [epidist::epidist()], so covariates (or a smooth
 #' time effect) can be put on `prob` or the delay through `formula`, e.g.
 #' `formula = brms::bf(mu ~ 1, prob ~ age)`. When the line list carries recovery
@@ -28,7 +34,10 @@
 #'   data frame with `y`, `outcome`, `pwindow`, `swindow`.
 #' @param delay Onset-to-death delay as a \pkg{distspec} distribution
 #'   ([distspec::LogNormal()], [distspec::Gamma()] or [distspec::Weibull()])
-#'   whose native parameters are fixed numbers or `Normal()` priors.
+#'   whose native parameters are fixed numbers or `Normal()` priors. A `max`
+#'   (e.g. `LogNormal(Normal(2.4, 0.2), Normal(0.5, 0.15), max = 30)`) truncates
+#'   the delay there, as it does everywhere else in \pkg{distspec}: recorded
+#'   delays then run from 0 to `max - 1` days.
 #' @param prob_prior Prior on `prob` as a [distspec::Beta()]. Defaults to
 #'   `Beta(1, 1)`.
 #' @param recovery_delay Optional onset-to-recovery delay (same form as `delay`)
@@ -88,6 +97,7 @@ fit_cfr <- function(data,
   cure <- as_epidist_cure_model(data)
   dd <- .delay_family_prior(delay, main = TRUE)
   dfam <- dd$family
+  attr(cure, "delay_max") <- dd$max
   prob_class <- if (.prob_has_intercept(formula)) "Intercept" else "b"
   prior <- c(.prob_prior_to_brms(prob_prior, prob_class), dd$prior)
   rfam <- dfam
@@ -101,6 +111,7 @@ fit_cfr <- function(data,
       rfam <- rd$family
       prior <- c(prior, rd$prior)
       attr(cure, "recovery_family") <- brms:::validate_family(rfam) # nolint
+      attr(cure, "recovery_max") <- rd$max
     }
   }
   use_recovery <- isTRUE(attr(cure, "use_recovery"))
@@ -132,6 +143,8 @@ fit_cfr <- function(data,
       NA_character_
     },
     prob_prior_sd = .prob_prior_sd(prior),
+    delay_max = dd$max,
+    recovery_max = if (use_recovery) attr(cure, "recovery_max") else Inf,
     obs_time = obs_time,
     onset = if ("onset" %in% names(cure)) cure$onset[used_rows] else NULL
   )
