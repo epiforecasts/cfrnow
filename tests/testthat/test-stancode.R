@@ -24,6 +24,10 @@ test_that("a death-only lognormal fit generates the cure lpmf", {
   code <- stancode_for(cure, LogNormal(meanlog = 2.41, sdlog = 0.51))
   expect_true(grepl("cfrnow_lognormal_lpmf", code))
   expect_true(grepl("primarycensored", code))
+  # the death-only template floors its unresolved-case survival on the log
+  # scale too, not just the two-outcome one
+  expect_true(grepl("log1m_exp", code, fixed = TRUE))
+  expect_true(grepl("primarycensored_lcdf", code, fixed = TRUE))
 })
 
 test_that("a gamma fit generates a gamma cure lpmf", {
