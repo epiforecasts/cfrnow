@@ -17,7 +17,10 @@
 #' over `[0, max)` days, matching how \pkg{distspec} discretises the same
 #' object, so a delay recorded as `max` days or longer has no probability. The
 #' estimated parameters still describe the untruncated family, which is what
-#' `summary()` reports as `delay_mean` and `delay_sd`.
+#' `summary()` reports as `delay_mean` and `delay_sd`. A recorded delay outside
+#' the bound, or a case unresolved for as long as every bound that could still
+#' apply to it, cannot come from such a model, so `fit_cfr()` stops rather than
+#' letting the sampler fail.
 #'
 #' The model is fitted through [epidist::epidist()], so covariates (or a smooth
 #' time effect) can be put on `prob` or the delay through `formula`, e.g.
@@ -115,6 +118,7 @@ fit_cfr <- function(data,
     }
   }
   use_recovery <- isTRUE(attr(cure, "use_recovery"))
+  .assert_within_max(cure, dd$max, if (use_recovery) attr(cure, "recovery_max"))
   fit <- epidist::epidist(cure,
     formula = formula, family = dfam,
     prior = prior, merge_priors = FALSE, ...
@@ -174,4 +178,57 @@ fit_cfr <- function(data,
   }
   draws <- stats::rnorm(1e5, as.numeric(m[2]), as.numeric(m[3]))
   stats::sd(stats::plogis(draws))
+}
+
+#' Check the data against the delays' upper bounds
+#'
+#' A bounded delay gives zero probability to anything longer than its `max`, so
+#' a recorded delay past the bound, or a case still unresolved past every bound
+#' that applies to it, cannot have come from the model and would make the fit
+#' fail inside Stan. Stop with a message naming the cases instead.
+#' @param cure An `epidist_cure_model`.
+#' @param delay_max,recovery_max Upper bounds of the death and recovery delays;
+#'   `Inf` (or `NULL`) when unbounded.
+#' @return `TRUE`, invisibly.
+#' @noRd
+.assert_within_max <- function(cure, delay_max, recovery_max = NULL) {
+  recovery_max <- recovery_max %||% Inf
+  # primarycensored rejects a delay whose secondary window closes past the
+  # bound, so the usable range is y + swindow <= max
+  too_long <- function(code, mx) {
+    sum(cure$outcome == code & cure$y + cure$swindow > mx)
+  }
+  n_death <- too_long(.CURE_DEATH, delay_max)
+  if (n_death > 0) {
+    stop(n_death, " death(s) with an onset-to-death delay that the delay's ",
+      "max (", delay_max, " days) gives no probability. Raise the max, or ",
+      "drop those records as data errors.",
+      call. = FALSE
+    )
+  }
+  n_recovery <- too_long(.CURE_RECOVERY, recovery_max)
+  if (n_recovery > 0) {
+    stop(n_recovery, " recovery(ies) with an onset-to-recovery delay that ",
+      "the recovery delay's max (", recovery_max, " days) gives no ",
+      "probability. Raise the max, or drop those records as data errors.",
+      call. = FALSE
+    )
+  }
+  # A censored case must still be able to resolve: it needs at least one of the
+  # outcomes it could still have to remain possible beyond its follow-up.
+  unresolved_max <- if (isTRUE(attr(cure, "use_recovery"))) {
+    max(delay_max, recovery_max)
+  } else {
+    # death-only: an unresolved case may always be a survivor
+    Inf
+  }
+  n_cens <- sum(cure$outcome == .CURE_CENSORED & cure$y >= unresolved_max)
+  if (n_cens > 0) {
+    stop(n_cens, " case(s) still unresolved at or past the delays' max (",
+      unresolved_max, " days), which the model gives zero probability. ",
+      "Drop them, or record them as resolved non-deaths.",
+      call. = FALSE
+    )
+  }
+  invisible(TRUE)
 }

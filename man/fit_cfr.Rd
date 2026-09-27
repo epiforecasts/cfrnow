@@ -67,7 +67,10 @@ A delay's \code{max} truncates it: the likelihood renormalises the distribution
 over \verb{[0, max)} days, matching how \pkg{distspec} discretises the same
 object, so a delay recorded as \code{max} days or longer has no probability. The
 estimated parameters still describe the untruncated family, which is what
-\code{summary()} reports as \code{delay_mean} and \code{delay_sd}.
+\code{summary()} reports as \code{delay_mean} and \code{delay_sd}. A recorded delay outside
+the bound, or a case unresolved for as long as every bound that could still
+apply to it, cannot come from such a model, so \code{fit_cfr()} stops rather than
+letting the sampler fail.
 
 The model is fitted through \code{\link[epidist:epidist]{epidist::epidist()}}, so covariates (or a smooth
 time effect) can be put on \code{prob} or the delay through \code{formula}, e.g.

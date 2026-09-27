@@ -1,5 +1,14 @@
 # cfrnow (development version)
 
+* A delay's `max` is now honoured: `fit_cfr()` truncates the fitted delay at
+  the bound (`LogNormal(..., max = 30)`), `simulate_linelist()` draws from the
+  truncated delay, and `pp_check_cfr()` replicates from it. Previously the bound
+  was silently ignored. The bound applies to the recorded delay, so it runs from
+  0 to `max - 1` days, the same support distspec gives the delay object.
+  `fit_cfr()` also stops, with a message naming the cases, when a recorded delay
+  or an unresolved case falls outside the bounds and would otherwise fail inside
+  Stan.
+
 * The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
   is a case fatality ratio only when the line list runs from onset to death; the
   same model can fit a hospital fatality ratio or other outcome probability for a
