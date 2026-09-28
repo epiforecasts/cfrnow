@@ -1,7 +1,7 @@
 # cfrnow (development version)
 
 * Added `posterior_prob_death()`, returning draws of the posterior probability
-  of death for each case: `prob` updated by Bayes' rule with a censored case's
+  of death for each case: `prob` updated by Bayes' rule on a censored case's
   follow-up, or the deterministic outcome for a resolved case. Averaging these
   draws over cases by onset date gives a real-time CFR for each onset period
   without a time trend in `prob`.
