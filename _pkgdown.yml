@@ -20,6 +20,7 @@ reference:
   contents:
   - summary.cfrnow_fit
   - pp_check_cfr
+  - posterior_prob_death
 - title: Simulation
   contents:
   - simulate_linelist

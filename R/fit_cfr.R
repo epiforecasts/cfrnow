@@ -126,7 +126,6 @@ fit_cfr <- function(data,
   }
   # Kept so posterior-predictive checks can replay the real-time truncation:
   # how long each case was watched, which is infinite in a retrospective fit.
-  obs_time <- if (inherits(data, "cfrnow_data")) data$obs_time else as.Date(NA)
   follow_up <- if (inherits(data, "cfrnow_data")) data$cases$follow_up else NULL
   cure <- as_epidist_cure_model(data)
   dd <- .delay_family_prior(delay, main = TRUE)
@@ -199,7 +198,13 @@ fit_cfr <- function(data,
     loss_shared = loss$shared,
     delay_max = dd$max,
     recovery_max = if (use_recovery) attr(cure, "recovery_max") else Inf,
-    obs_time = if (length(obs_time) > 1) obs_time[used_rows] else obs_time,
+    # Kept, one per fitted case, so pp_check_cfr() can replay each case's own
+    # real-time truncation; NA (retrospective) means fully followed up.
+    obs_time = if ("obs_time" %in% names(cure)) {
+      cure$obs_time[used_rows]
+    } else {
+      as.Date(NA)
+    },
     follow_up = follow_up[used_rows],
     onset = if ("onset" %in% names(cure)) cure$onset[used_rows] else NULL
   )

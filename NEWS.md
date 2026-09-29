@@ -1,11 +1,5 @@
 # cfrnow (development version)
 
-* `prepare_cfr_data()`'s `obs_time` accepts one cut-off per case, as a vector
-  or the name of a `linelist` column, for data that reaches the analyst at
-  different times by site. Each case's deaths, recoveries and follow-up are
-  then read against its own cut-off, and `pp_check_cfr()` replays the
-  truncation case by case.
-
 * `fit_cfr()` gains `loss_prior`, a prior on the probability that a case is
   lost to follow-up and its outcome never recorded. A fit that allows for loss
   estimates it alongside the outcome probability and the delays, and
@@ -15,29 +9,35 @@
   `list(death = 0, recovery = Beta(1, 1))` gives each outcome its own, fixed or
   estimated. Estimating both is a sensitivity analysis, since the data cannot
   tell them apart, and `fit_cfr()` warns.
-
 * `prepare_cfr_data()` gains `last_contact_date`, the column holding the date a
   case with no recorded outcome was last known unresolved. Such a case is
   censored there instead of at the cut-off, in retrospective fits too.
-* The survival term for an unresolved case is computed on the log scale
-  (`primarycensored_lcdf()` and `log1m_exp()`). A case followed up for much
-  longer than the delay rounds the CDF to 1, where the previous `log1m()` form
-  rejected every draw with `log1m: x is 1, but must be less than or equal to
-  1`, leaving the chains stuck at their starting values.
-
 * A delay's `max` is now honoured: `fit_cfr()` truncates the fitted delay at
   the bound (`LogNormal(..., max = 30)`), `simulate_linelist()` draws from the
   truncated delay, and `pp_check_cfr()` replicates from it. Previously the bound
-  was silently ignored. The bound applies to the recorded delay, so it runs from
+  was silently ignored. The bound applies to the recorded delay: it runs from
   0 to `max - 1` days, the same support distspec gives the delay object.
   `fit_cfr()` also stops, with a message naming the cases, when a recorded delay
   or an unresolved case falls outside the bounds and would otherwise fail inside
   Stan.
-
-* `pp_check_cfr()` now draws replicate delays from a Weibull fit's own
-  distribution; it previously drew them from a gamma, so the checks for a
-  Weibull delay compared the fit against the wrong replicates.
-
+* `prepare_cfr_data()`'s `obs_time` accepts a vector of per-case cut-offs, or
+  the name of a `linelist` column holding them, so a case reported by a site
+  that cut off earlier is judged against its own cut-off rather than the
+  latest one in the data. `pp_check_cfr()` replays each case's own cut-off
+  when building its follow-up horizon.
+* The survival term for an unresolved case is computed on the log scale
+  (`primarycensored_lcdf()` and `log1m_exp()`) instead of `log1m()`. A case
+  followed up for much longer than the delay rounds the CDF to 1, which made
+  `log1m()` reject every draw with `log1m: x is 1, but must be less than or
+  equal to 1` and left the chains stuck at their starting values.
+* `pp_check_cfr()` now draws Weibull-family replicate delays from a Weibull
+  distribution instead of a gamma, so posterior-predictive checks for a
+  Weibull fit compare against the right spread of delays.
+* Added `posterior_prob_death()`, returning draws of the posterior probability
+  of death for each case: `prob` updated by Bayes' rule on a censored case's
+  follow-up, or the deterministic outcome for a resolved case. Averaging these
+  draws over cases by onset date gives a real-time CFR for each onset period
+  without a time trend in `prob`.
 * The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
   is a case fatality ratio only when the line list runs from onset to death; the
   same model can fit a hospital fatality ratio or other outcome probability for a

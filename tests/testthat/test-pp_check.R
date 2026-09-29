@@ -6,6 +6,20 @@ test_that("pp_check_cfr rejects objects that are not cfrnow fits", {
   )
 })
 
+test_that(".cfr_horizon builds each case's horizon from its own cut-off", {
+  onset <- as.Date(c("2026-01-01", "2026-01-05"))
+
+  # per-case cut-offs: each case's horizon runs to its own, not the other's
+  obs_time <- as.Date(c("2026-01-10", "2026-01-30"))
+  expect_equal(.cfr_horizon(obs_time, onset), c(10, 26))
+
+  # a single shared cut-off still broadcasts to every case
+  expect_equal(.cfr_horizon(as.Date("2026-01-10"), onset), c(10, 6))
+
+  # NA (retrospective) means no truncation
+  expect_equal(.cfr_horizon(as.Date(c(NA, NA)), onset), c(Inf, Inf))
+})
+
 test_that(".cfr_ppc_stats counts deaths and replays truncation", {
   set.seed(1)
   nd <- 20
@@ -38,6 +52,28 @@ test_that(".cfr_ppc_stats counts deaths and replays truncation", {
     FALSE, NULL, NULL, NULL, obs
   )
   expect_lt(mean(truncated$counts$n), n)
+})
+
+test_that(".cfr_ppc_stats draws weibull delays from a weibull, not a gamma", {
+  set.seed(4)
+  nd <- 200
+  n <- 200
+  shape <- 2
+  loc <- matrix(10, nd, n) # brms weibull mu: the mean delay
+  sc <- matrix(shape, nd, n)
+  obs <- list(deaths = 1L, recoveries = NA_integer_, death_delays = 5)
+
+  reps <- .cfr_ppc_stats(
+    matrix(1, nd, n), loc, sc, rep(Inf, n), "weibull",
+    FALSE, NULL, NULL, NULL, obs
+  )
+
+  weibull_sd <- 10 * sqrt(gamma(1 + 2 / shape) / gamma(1 + 1 / shape)^2 - 1)
+  gamma_sd <- 10 / sqrt(shape) # shape/rate^2 with rate = shape / loc
+
+  observed_sd <- stats::sd(reps$delays$delay)
+  expect_equal(observed_sd, weibull_sd, tolerance = 0.1)
+  expect_true(abs(observed_sd - gamma_sd) > 0.3)
 })
 
 test_that(".cfr_ppc_stats handles gamma delays and the recovery branch", {
@@ -131,8 +167,10 @@ test_that("pp_check_cfr returns ggplots and reproduces the death count", {
     refresh = 0, seed = 1
   )
 
-  # each case's cut-off is recorded so the check can replay the truncation
+  # the cut-off is recorded, one per case, so the check can replay the
+  # real-time truncation
   expect_false(anyNA(fit$cfrnow$obs_time))
+  expect_length(fit$cfrnow$obs_time, nrow(fit$data))
   expect_s3_class(pp_check_cfr(fit, "counts", ndraws = 50), "ggplot")
   expect_s3_class(pp_check_cfr(fit, "delay", ndraws = 50), "ggplot")
 
@@ -142,6 +180,40 @@ test_that("pp_check_cfr returns ggplots and reproduces the death count", {
   obs <- reps$observed_counts$n[reps$observed_counts$outcome == "deaths"]
   expect_gte(obs, stats::quantile(pd, 0.01))
   expect_lte(obs, stats::quantile(pd, 0.99))
+})
+
+test_that("fit_cfr and pp_check_cfr replay a per-site cut-off", {
+  testthat::skip_if_not_installed("cmdstanr")
+  testthat::skip_if_not_installed("ggplot2")
+  testthat::skip_if(
+    is.null(tryCatch(cmdstanr::cmdstan_version(), error = function(e) NULL)),
+    "cmdstan not installed"
+  )
+
+  set.seed(40)
+  ll <- rbind(
+    cbind(simulate_linelist(n = 150, cfr = 0.4, delay = LogNormal(2.4, 0.5)),
+      site = "A"
+    ),
+    cbind(simulate_linelist(n = 150, cfr = 0.4, delay = LogNormal(2.4, 0.5)),
+      site = "B"
+    )
+  )
+  # site A reported up to ten days before site B
+  ll$site_cutoff <- as.Date(NA)
+  ll$site_cutoff[ll$site == "A"] <- max(ll$onset_date) - 15
+  ll$site_cutoff[ll$site == "B"] <- max(ll$onset_date) - 5
+
+  d <- prepare_cfr_data(ll, obs_time = "site_cutoff")
+  fit <- fit_cfr(d,
+    delay = LogNormal(meanlog = Normal(2.4, 0.2), sdlog = Normal(0.5, 0.15)),
+    backend = "cmdstanr", chains = 1, iter = 400, warmup = 200,
+    refresh = 0, seed = 1
+  )
+
+  # each fitted case kept its own site's cut-off, not the later of the two
+  expect_equal(length(unique(fit$cfrnow$obs_time)), 2L)
+  expect_s3_class(pp_check_cfr(fit, "counts", ndraws = 50), "ggplot")
 })
 
 test_that("pp_check_cfr works when a formula covariate has missing values", {

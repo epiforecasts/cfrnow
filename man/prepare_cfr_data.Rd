@@ -22,14 +22,14 @@ optional
 \code{recovery_date} column (\code{NA} unless the case is a recorded non-fatal
 recovery). Dates may be \code{Date} or coercible.}
 
-\item{obs_time}{Real-time cut-off: one \code{Date} (or coercible), one per row of
-\code{linelist}, or the name of a \code{linelist} column holding them, for data that
-reaches the analyst at different times by site. \code{NULL} gives a
-retrospective fit in which every recorded death counts and survivors are
-treated as fully resolved. In real time, a case with a recovery on or
-before \code{obs_time} is resolved; one still alive and unresolved is
-right-censored; and a death dated after \code{obs_time} is treated as
-not-yet-known (right-censored).}
+\item{obs_time}{Real-time cut-off, or \code{NULL} for a retrospective fit in
+which every recorded death counts and survivors are treated as fully
+resolved. A single \code{Date} (or coercible) is shared by every case; a vector
+with one entry per row of \code{linelist} gives each case its own cut-off; or a
+string naming a \code{linelist} column holding those per-case cut-offs. In real
+time, a case with a recovery on or before its own \code{obs_time} is resolved;
+one still alive and unresolved is right-censored; and a death dated after
+its own \code{obs_time} is treated as not-yet-known (right-censored).}
 
 \item{covariates}{Character vector of \code{linelist} column names to carry
 through to the per-case model rows, so they can be used in a \code{prob ~ ...}
@@ -59,11 +59,9 @@ followed until that happened.}
 A \code{cfrnow_data} list with the aggregated model inputs (\code{n_death},
 \code{death_delay}, \code{death_width}, \code{n_recovery}, \code{recovery_delay},
 \code{recovery_width}, \code{n_cens}, \code{censor_time}, \code{censor_width}, \code{n_resolved},
-\code{n_cases}, \code{n_deaths}, \code{n_recoveries}, \code{t0}, \code{obs_time}, which is one date
-per kept case when the cut-offs differ and a single date when they do not)
-and a \code{cases}
-data frame with one row per kept case (\code{y}, \code{outcome}, \code{pwindow},
-\code{swindow}, \code{onset}, that case's \code{obs_time}, \code{follow_up} (days watched,
+\code{n_cases}, \code{n_deaths}, \code{n_recoveries}, \code{t0}, \code{obs_time}, one per kept case)
+and a \code{cases} data frame with one row per kept case (\code{y}, \code{outcome},
+\code{pwindow}, \code{swindow}, \code{onset}, \code{obs_time}, \code{follow_up} (days watched,
 \code{Inf} in a retrospective fit) and any requested \code{covariates}), which
 \code{\link[=as_epidist_cure_model]{as_epidist_cure_model()}} turns into the model frame.
 }
@@ -84,8 +82,13 @@ and recoveries are recorded to the day.
 Records that cannot be used are dropped with a warning: a missing onset, an
 inverted onset window (\code{onset_upper < onset_lower}), a death with an
 impossible onset-to-death delay (negative, or longer than \code{max_delay}), or a
-recovery dated before onset. In real time, cases whose onset falls after
-\code{obs_time} are not yet known and are excluded with a message.
+recovery dated before onset. In real time, a case whose onset falls after
+its own \code{obs_time} is not yet known and is excluded with a message.
+
+Data often reaches the analyst at different times by site, so \code{obs_time} may
+give each case its own cut-off rather than one shared by the whole line
+list: a case's deaths, recoveries, follow-up and exclusion are all judged
+against its own cut-off, not the latest one in the data.
 }
 \examples{
 ll <- simulate_linelist(n = 50, delay = LogNormal(2.4, 0.5))

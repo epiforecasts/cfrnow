@@ -100,6 +100,15 @@
   matrix(as.numeric(part), dims[1], dims[2])
 }
 
+# Per-case follow-up horizon: days from each case's own recorded onset to its
+# own cut-off (broadcasting a single shared `obs_time`, if that is all the fit
+# stored). NA `obs_time` (a retrospective fit) means no truncation.
+.cfr_horizon <- function(obs_time, onset) {
+  obs_time <- as.Date(obs_time)
+  if (length(obs_time) == 1) obs_time <- rep(obs_time, length(onset))
+  ifelse(is.na(obs_time), Inf, as.numeric(obs_time - as.Date(onset)) + 1)
+}
+
 # Pull the per-draw, per-case CFR and delay parameters out of the fit with
 # posterior_linpred (so covariate and time-varying fits work the same as
 # intercept-only ones), build the follow-up horizon, then hand off to
@@ -149,16 +158,8 @@
   # Per-case follow-up horizon, as prepare_cfr_data() measured it: days from
   # the start of the onset window to the cut-off, or to the case's last contact
   # when that comes first. A retrospective fit watched every case indefinitely.
-  h <- object$cfrnow$follow_up
-  if (is.null(h)) {
-    # a fit from before the follow-up was stored: fall back to the cut-off
-    obs_time <- object$cfrnow$obs_time %||% as.Date(NA)
-    h <- if (all(is.na(obs_time))) {
-      rep(Inf, nrow(d))
-    } else {
-      as.numeric(as.Date(obs_time) - as.Date(onset)) + 1
-    }
-  }
+  h <- object$cfrnow$follow_up %||%
+    .cfr_horizon(object$cfrnow$obs_time %||% as.Date(NA), onset)
 
   observed <- list(
     deaths = sum(d$outcome == .CURE_DEATH),
@@ -218,7 +219,9 @@
 #' The check reuses the fit's own posterior draws of the CFR and the delay, so
 #' it works for covariate and time-varying `prob ~ ...` fits as well as
 #' intercept-only ones. It needs the observation cut-off, which [fit_cfr()]
-#' records when the data come from [prepare_cfr_data()]; a retrospective fit
+#' records when the data come from [prepare_cfr_data()]; each case's follow-up
+#' horizon is built from its own cut-off, so a per-case `obs_time` (e.g. one
+#' cut-off per reporting site) is replayed correctly. A retrospective fit
 #' (`obs_time = NULL`) has no truncation to replay, so every fatal case shows up
 #' as a death.
 #'

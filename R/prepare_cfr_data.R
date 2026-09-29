@@ -15,8 +15,13 @@
 #' Records that cannot be used are dropped with a warning: a missing onset, an
 #' inverted onset window (`onset_upper < onset_lower`), a death with an
 #' impossible onset-to-death delay (negative, or longer than `max_delay`), or a
-#' recovery dated before onset. In real time, cases whose onset falls after
-#' `obs_time` are not yet known and are excluded with a message.
+#' recovery dated before onset. In real time, a case whose onset falls after
+#' its own `obs_time` is not yet known and is excluded with a message.
+#'
+#' Data often reaches the analyst at different times by site, so `obs_time` may
+#' give each case its own cut-off rather than one shared by the whole line
+#' list: a case's deaths, recoveries, follow-up and exclusion are all judged
+#' against its own cut-off, not the latest one in the data.
 #'
 #' @param last_contact_date Optional column name in `linelist` holding the last
 #'   date a case was known to be alive and unresolved (a transfer, a discharge
@@ -32,14 +37,14 @@
 #'   optional
 #'   `recovery_date` column (`NA` unless the case is a recorded non-fatal
 #'   recovery). Dates may be `Date` or coercible.
-#' @param obs_time Real-time cut-off: one `Date` (or coercible), one per row of
-#'   `linelist`, or the name of a `linelist` column holding them, for data that
-#'   reaches the analyst at different times by site. `NULL` gives a
-#'   retrospective fit in which every recorded death counts and survivors are
-#'   treated as fully resolved. In real time, a case with a recovery on or
-#'   before `obs_time` is resolved; one still alive and unresolved is
-#'   right-censored; and a death dated after `obs_time` is treated as
-#'   not-yet-known (right-censored).
+#' @param obs_time Real-time cut-off, or `NULL` for a retrospective fit in
+#'   which every recorded death counts and survivors are treated as fully
+#'   resolved. A single `Date` (or coercible) is shared by every case; a vector
+#'   with one entry per row of `linelist` gives each case its own cut-off; or a
+#'   string naming a `linelist` column holding those per-case cut-offs. In real
+#'   time, a case with a recovery on or before its own `obs_time` is resolved;
+#'   one still alive and unresolved is right-censored; and a death dated after
+#'   its own `obs_time` is treated as not-yet-known (right-censored).
 #' @param covariates Character vector of `linelist` column names to carry
 #'   through to the per-case model rows, so they can be used in a `prob ~ ...`
 #'   formula. The onset date is always carried as `onset`; for a time-varying
@@ -57,11 +62,9 @@
 #' @return A `cfrnow_data` list with the aggregated model inputs (`n_death`,
 #'   `death_delay`, `death_width`, `n_recovery`, `recovery_delay`,
 #'   `recovery_width`, `n_cens`, `censor_time`, `censor_width`, `n_resolved`,
-#'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`, which is one date
-#'   per kept case when the cut-offs differ and a single date when they do not)
-#'   and a `cases`
-#'   data frame with one row per kept case (`y`, `outcome`, `pwindow`,
-#'   `swindow`, `onset`, that case's `obs_time`, `follow_up` (days watched,
+#'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`, one per kept case)
+#'   and a `cases` data frame with one row per kept case (`y`, `outcome`,
+#'   `pwindow`, `swindow`, `onset`, `obs_time`, `follow_up` (days watched,
 #'   `Inf` in a retrospective fit) and any requested `covariates`), which
 #'   [as_epidist_cure_model()] turns into the model frame.
 #' @examples
@@ -242,13 +245,7 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
       n_recoveries = length(recovery_delay),
       cases = cases,
       t0 = t0,
-      # one per kept case, like every other per-case field here; a single
-      # cut-off for the whole line list stays a single date
-      obs_time = if (length(unique(obs_time[keep])) > 1) {
-        obs_time[keep]
-      } else {
-        obs_time[keep][1]
-      }
+      obs_time = obs_time[keep]
     ),
     class = "cfrnow_data"
   )
