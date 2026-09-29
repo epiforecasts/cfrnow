@@ -11,6 +11,10 @@
   draw_delay <- function(loc_i, sc_i, family) {
     if (family == "lognormal") {
       stats::rlnorm(length(loc_i), loc_i, sc_i)
+    } else if (family == "weibull") {
+      stats::rweibull(length(loc_i),
+        shape = sc_i, scale = loc_i / gamma(1 + 1 / sc_i)
+      )
     } else {
       stats::rgamma(length(loc_i), shape = sc_i, rate = sc_i / loc_i)
     }

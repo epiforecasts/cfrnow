@@ -54,6 +54,7 @@ pp_check_cfr(fit, type = "delay")
 \seealso{
 Other fit:
 \code{\link[=fit_cfr]{fit_cfr()}},
+\code{\link[=posterior_prob_death]{posterior_prob_death()}},
 \code{\link[=summary.cfrnow_fit]{summary.cfrnow_fit()}}
 }
 \concept{fit}

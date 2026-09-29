@@ -54,6 +54,28 @@ test_that(".cfr_ppc_stats counts deaths and replays truncation", {
   expect_lt(mean(truncated$counts$n), n)
 })
 
+test_that(".cfr_ppc_stats draws weibull delays from a weibull, not a gamma", {
+  set.seed(4)
+  nd <- 200
+  n <- 200
+  shape <- 2
+  loc <- matrix(10, nd, n) # brms weibull mu: the mean delay
+  sc <- matrix(shape, nd, n)
+  obs <- list(deaths = 1L, recoveries = NA_integer_, death_delays = 5)
+
+  reps <- .cfr_ppc_stats(
+    matrix(1, nd, n), loc, sc, rep(Inf, n), "weibull",
+    FALSE, NULL, NULL, NULL, obs
+  )
+
+  weibull_sd <- 10 * sqrt(gamma(1 + 2 / shape) / gamma(1 + 1 / shape)^2 - 1)
+  gamma_sd <- 10 / sqrt(shape) # shape/rate^2 with rate = shape / loc
+
+  observed_sd <- stats::sd(reps$delays$delay)
+  expect_equal(observed_sd, weibull_sd, tolerance = 0.1)
+  expect_true(abs(observed_sd - gamma_sd) > 0.3)
+})
+
 test_that(".cfr_ppc_stats handles gamma delays and the recovery branch", {
   set.seed(2)
   nd <- 15
