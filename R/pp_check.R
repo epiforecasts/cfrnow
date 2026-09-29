@@ -2,30 +2,44 @@
 # observation process, then aggregate. Kept free of the fitted model so it can
 # be tested directly: `cfr`, `loc` and `sc` (and their recovery counterparts)
 # are ndraws-by-n matrices of per-draw, per-case parameters on the response
-# scale, `h` is the per-case follow-up horizon, and `observed` holds the
-# observed death and recovery counts and the observed death delays.
+# scale, `h` is the per-case follow-up horizon, `mx` and `rmx` are the delays'
+# upper bounds (Inf when unbounded), and `observed` holds the observed death
+# and recovery counts and the observed death delays.
 .cfr_ppc_stats <- function(cfr, loc, sc, h, fam, use_rec, rloc, rsc, rfam,
-                           observed) {
+                           observed, mx = Inf, rmx = Inf) {
   nd <- nrow(cfr)
   n <- ncol(cfr)
-  draw_delay <- function(loc_i, sc_i, family) {
-    if (family == "lognormal") {
-      stats::rlnorm(length(loc_i), loc_i, sc_i)
-    } else if (family == "weibull") {
-      stats::rweibull(length(loc_i),
-        shape = sc_i, scale = loc_i / gamma(1 + 1 / sc_i)
+  # Each family's draws come from its brms mu-form: mu is the delay's mean and
+  # the second parameter is the family's own shape (sdlog for a lognormal).
+  # A recorded delay is the whole number of days from the recorded onset, so a
+  # bound applies to the onset offset and the delay together; .draw_recorded()
+  # draws them from the joint distribution the likelihood conditions on.
+  draw_day <- function(loc_i, sc_i, family, delay_max) {
+    d <- switch(family,
+      lognormal = list(
+        q = stats::qlnorm, p = stats::plnorm, a = loc_i, b = sc_i
+      ),
+      gamma = list(
+        q = stats::qgamma, p = stats::pgamma, a = sc_i, b = sc_i / loc_i
+      ),
+      weibull = list(
+        q = stats::qweibull, p = stats::pweibull,
+        a = sc_i, b = loc_i / gamma(1 + 1 / sc_i)
       )
-    } else {
-      stats::rgamma(length(loc_i), shape = sc_i, rate = sc_i / loc_i)
+    )
+    if (is.null(d)) {
+      stop("pp_check_cfr() supports lognormal, gamma and weibull delays only.",
+        call. = FALSE
+      )
     }
+    .draw_recorded(length(loc_i), d, delay_max)
   }
 
   counts <- vector("list", nd)
   delays <- vector("list", nd)
   for (k in seq_len(nd)) {
     fatal <- stats::runif(n) < cfr[k, ]
-    frac <- stats::runif(n) # true onset is uniform within its recorded day
-    delay_day <- floor(frac + draw_delay(loc[k, ], sc[k, ], fam))
+    delay_day <- draw_day(loc[k, ], sc[k, ], fam, mx)
     obs_death <- fatal & (delay_day <= h - 1)
 
     cts <- data.frame(
@@ -33,7 +47,7 @@
       stringsAsFactors = FALSE
     )
     if (use_rec) {
-      rec_day <- floor(frac + draw_delay(rloc[k, ], rsc[k, ], rfam))
+      rec_day <- draw_day(rloc[k, ], rsc[k, ], rfam, rmx)
       obs_rec <- !fatal & (rec_day <= h - 1)
       cts <- rbind(cts, data.frame(
         .draw = k, outcome = "recoveries", n = sum(obs_rec),
@@ -126,7 +140,10 @@
     recoveries = if (use_rec) sum(d$outcome == .CURE_RECOVERY) else NA_integer_,
     death_delays = d$y[d$outcome == .CURE_DEATH]
   )
-  .cfr_ppc_stats(cfr, loc, sc, h, fam, use_rec, rloc, rsc, rfam, observed)
+  .cfr_ppc_stats(cfr, loc, sc, h, fam, use_rec, rloc, rsc, rfam, observed,
+    mx = object$cfrnow$delay_max %||% Inf,
+    rmx = object$cfrnow$recovery_max %||% Inf
+  )
 }
 
 .cfr_ppc_counts_plot <- function(reps) {

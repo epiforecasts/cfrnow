@@ -45,33 +45,33 @@ simulate_linelist <- function(n = 200, cfr = 0.5, delay, recovery = NULL,
   }
   onset <- as.Date(onset_start) + sample.int(onset_days, n, replace = TRUE) - 1
   fatal <- stats::runif(n) < cfr
-  # Sub-day onset offset: true onset is uniform within its recorded day.
-  onset_frac <- stats::runif(n)
 
   otd <- sample_delay(n, delay)
   death_date <- as.Date(rep(NA, n))
-  # Event day = floor of the continuous onset-plus-delay time, so day-level
-  # delays are a genuine doubly-interval-censored draw.
-  death_date[fatal] <- onset[fatal] + floor(onset_frac[fatal] + otd[fatal])
+  death_date[fatal] <- onset[fatal] + otd[fatal]
   out <- data.frame(onset_date = onset, death_date = death_date)
 
   if (!is.null(recovery)) {
     otr <- sample_delay(n, recovery)
     recovery_date <- as.Date(rep(NA, n))
-    recovery_date[!fatal] <-
-      onset[!fatal] + floor(onset_frac[!fatal] + otr[!fatal])
+    recovery_date[!fatal] <- onset[!fatal] + otr[!fatal]
     out$recovery_date <- recovery_date
   }
   out
 }
 
-#' Draw delays from a distspec distribution with fixed parameters
+#' Draw recorded delays from a distspec distribution with fixed parameters
 #'
 #' Used by [simulate_linelist()] for the onset-to-death and onset-to-recovery
-#' delays. Errors if any parameter is a prior rather than a fixed number.
+#' delays. The true onset is uniform within its recorded day, so a recorded
+#' delay is `floor(onset_frac + delay)` whole days, a doubly-interval-censored
+#' draw. A delay with a `max` bounds that recorded delay, as the likelihood
+#' [fit_cfr()] uses does, so the offset and the delay are drawn together and
+#' resampled as a pair until they fall inside the bound. Errors if any parameter
+#' is a prior rather than a fixed number.
 #' @param n Number of delays to draw.
 #' @param delay A distspec delay distribution with fixed parameters.
-#' @return A numeric vector of `n` delays (days).
+#' @return An integer-valued vector of `n` recorded delays (whole days).
 #' @noRd
 sample_delay <- function(n, delay) {
   fam <- get_distribution(delay)
@@ -82,19 +82,73 @@ sample_delay <- function(n, delay) {
       call. = FALSE
     )
   }
-  out <- switch(fam,
-    lognormal = stats::rlnorm(n, pars[["meanlog"]], pars[["sdlog"]]),
-    gamma = stats::rgamma(n, shape = pars[["shape"]], rate = pars[["rate"]]),
-    weibull = stats::rweibull(
-      n,
-      shape = pars[["shape"]], scale = pars[["scale"]]
+  d <- switch(fam,
+    lognormal = list(
+      q = stats::qlnorm, p = stats::plnorm,
+      a = pars[["meanlog"]], b = pars[["sdlog"]]
+    ),
+    gamma = list(
+      q = stats::qgamma, p = stats::pgamma,
+      a = pars[["shape"]], b = pars[["rate"]]
+    ),
+    weibull = list(
+      q = stats::qweibull, p = stats::pweibull,
+      a = pars[["shape"]], b = pars[["scale"]]
     )
   )
-  if (is.null(out)) {
+  if (is.null(d)) {
     stop("simulate_linelist() supports LogNormal(), Gamma() and Weibull() ",
       "delays only.",
       call. = FALSE
     )
   }
-  out
+  .draw_recorded(n, d, .delay_max(delay))
+}
+
+#' Draw recorded whole-day delays under a bound
+#'
+#' A recorded delay is `floor(onset_frac + delay)`, and a bound applies to that
+#' sum, so offset and delay have to be drawn from their joint distribution
+#' conditioned on staying inside it. Conditioning the delay alone would leave
+#' the offset uniform, where the conditioning tilts it towards the early part
+#' of the day by a factor proportional to `F(max - offset)`.
+#'
+#' The offset is therefore drawn from that tilted density, by rejection against
+#' its largest value, `F(max)`; the delay then follows by inverting its CDF
+#' over `[0, F(max - offset)]`. Acceptance depends only on how much of the
+#' delay's mass sits in the last day before the bound, never on how far the
+#' distribution runs past it, so a delay whose bulk is well beyond the bound
+#' costs no more than one whose bulk is inside.
+#'
+#' @param n Number of delays to draw.
+#' @param d A list of the family's quantile and distribution functions (`q`,
+#'   `p`) and its two parameters (`a`, `b`), each a scalar or a vector of `n`.
+#' @param delay_max The bound, or `Inf`.
+#' @return An integer-valued vector of `n` recorded delays (whole days).
+#' @noRd
+.draw_recorded <- function(n, d, delay_max) {
+  frac <- stats::runif(n)
+  if (is.infinite(delay_max)) {
+    return(floor(frac + d$q(stats::runif(n), d$a, d$b)))
+  }
+  # a and b are one value, or one per draw
+  at <- function(v, i) if (length(v) == 1) v else v[i]
+  ceiling_mass <- d$p(delay_max, d$a, d$b)
+  if (any(ceiling_mass <= 0)) {
+    stop("the delay's `max` (", delay_max, " days) leaves it no probability; ",
+      "raise the max, or widen the delay.",
+      call. = FALSE
+    )
+  }
+  # Only the offsets still to be accepted are redrawn; testing the settled ones
+  # again would need every draw to accept at once, which never happens.
+  pending <- seq_len(n)
+  while (length(pending) > 0) {
+    frac[pending] <- stats::runif(length(pending))
+    accept <- stats::runif(length(pending)) * at(ceiling_mass, pending) <=
+      d$p(delay_max - frac[pending], at(d$a, pending), at(d$b, pending))
+    pending <- pending[!accept]
+  }
+  u <- stats::runif(n) * d$p(delay_max - frac, d$a, d$b)
+  floor(frac + d$q(u, d$a, d$b))
 }
