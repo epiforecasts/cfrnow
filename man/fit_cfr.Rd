@@ -89,6 +89,7 @@ fit_cfr(d, delay = otd, formula = brms::bf(mu ~ 1, prob ~ group))
 }
 \seealso{
 Other fit:
+\code{\link[=posterior_prob_death]{posterior_prob_death()}},
 \code{\link[=pp_check_cfr]{pp_check_cfr()}},
 \code{\link[=summary.cfrnow_fit]{summary.cfrnow_fit()}}
 }
