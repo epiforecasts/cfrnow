@@ -1,5 +1,8 @@
 # cfrnow (development version)
 
+* `pp_check_cfr()` now draws Weibull-family replicate delays from a Weibull
+  distribution instead of a gamma, so posterior-predictive checks for a
+  Weibull fit compare against the right spread of delays.
 * Added `posterior_prob_death()`, returning draws of the posterior probability
   of death for each case: `prob` updated by Bayes' rule on a censored case's
   follow-up, or the deterministic outcome for a resolved case. Averaging these
