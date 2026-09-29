@@ -1,5 +1,10 @@
 # cfrnow (development version)
 
+* `prepare_cfr_data()`'s `obs_time` accepts a vector of per-case cut-offs, or
+  the name of a `linelist` column holding them, so a case reported by a site
+  that cut off earlier is judged against its own cut-off rather than the
+  latest one in the data. `pp_check_cfr()` replays each case's own cut-off
+  when building its follow-up horizon.
 * The survival term for an unresolved case is computed on the log scale
   (`primarycensored_lcdf()` and `log1m_exp()`) instead of `log1m()`. A case
   followed up for much longer than the delay rounds the CDF to 1, which made

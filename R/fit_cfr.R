@@ -82,9 +82,6 @@ fit_cfr <- function(data,
     )
     formula <- .rename_cfr_formula(formula)
   }
-  # Kept so posterior-predictive checks can replay the real-time truncation;
-  # NA (retrospective) means every case is fully followed up.
-  obs_time <- if (inherits(data, "cfrnow_data")) data$obs_time else as.Date(NA)
   cure <- as_epidist_cure_model(data)
   dd <- .delay_family_prior(delay, main = TRUE)
   dfam <- dd$family
@@ -132,7 +129,13 @@ fit_cfr <- function(data,
       NA_character_
     },
     prob_prior_sd = .prob_prior_sd(prior),
-    obs_time = obs_time,
+    # Kept, one per fitted case, so pp_check_cfr() can replay each case's own
+    # real-time truncation; NA (retrospective) means fully followed up.
+    obs_time = if ("obs_time" %in% names(cure)) {
+      cure$obs_time[used_rows]
+    } else {
+      as.Date(NA)
+    },
     onset = if ("onset" %in% names(cure)) cure$onset[used_rows] else NULL
   )
   class(fit) <- c("cfrnow_fit", class(fit))
