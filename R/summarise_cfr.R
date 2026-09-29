@@ -175,8 +175,11 @@ naive_cfr <- function(n_deaths, n_cases) {
 #' @param ... Unused.
 #' @return A data frame with one row per quantity: `prob` (or one
 #'   `prob[<group>]` row per group for a `prob ~ group` fit), `delay_mean` and
-#'   `delay_sd`, carrying `naive_cfr`, `n_cases`, `n_deaths`, `cfr_prior_sd`,
-#'   `cfr_low_information` and `ascertainment_ratio` attributes.
+#'   `delay_sd`, `recovery_mean` and `recovery_sd` for a two-outcome fit, and
+#'   `loss` (or `loss_death` and `loss_recovery`) for a fit with an estimated
+#'   `loss_prior`. It carries `naive_cfr`, `n_cases`, `n_deaths`,
+#'   `cfr_prior_sd`, `cfr_low_information` and `ascertainment_ratio`
+#'   attributes.
 #' @family fit
 #' @export
 summary.cfrnow_fit <- function(object, probs = c(0.025, 0.5, 0.975),

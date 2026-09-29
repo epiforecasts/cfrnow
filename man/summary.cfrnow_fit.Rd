@@ -34,8 +34,11 @@ to 1 (no correction).}
 \value{
 A data frame with one row per quantity: \code{prob} (or one
 \verb{prob[<group>]} row per group for a \code{prob ~ group} fit), \code{delay_mean} and
-\code{delay_sd}, carrying \code{naive_cfr}, \code{n_cases}, \code{n_deaths}, \code{cfr_prior_sd},
-\code{cfr_low_information} and \code{ascertainment_ratio} attributes.
+\code{delay_sd}, \code{recovery_mean} and \code{recovery_sd} for a two-outcome fit, and
+\code{loss} (or \code{loss_death} and \code{loss_recovery}) for a fit with an estimated
+\code{loss_prior}. It carries \code{naive_cfr}, \code{n_cases}, \code{n_deaths},
+\code{cfr_prior_sd}, \code{cfr_low_information} and \code{ascertainment_ratio}
+attributes.
 }
 \description{
 Reports the corrected CFR and the onset-to-death delay (mean and sd, in days)
