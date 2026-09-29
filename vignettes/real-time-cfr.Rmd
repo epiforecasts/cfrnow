@@ -145,7 +145,7 @@ plot_weekly <- function(cut) {
 
 ## One week after the last onset
 
-```{r early, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates one week after the last onset. The constant model's prob is flat at 0.32; the spline's prob rises smoothly. The predicted fatal fraction matches the realised fractions for the earlier weeks and, for the last two weeks, is pulled towards each model's prob."}
+```{r early, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates one week after the last onset. The constant model's prob is flat at 0.32; the spline's prob dips slightly, then rises from week 5. The predicted fatal fraction matches the realised fractions for the earlier weeks and, for the last two weeks, is pulled towards each model's prob."}
 plot_weekly("early")
 ```
 
@@ -167,10 +167,10 @@ and the probabilities for those cases stay close to their `prob`:
 
 - The constant model's `prob` of 0.32 is an average over the whole outbreak. It
   pulls the prediction down to 0.44 in week 10 and 0.37 in week 11.
-- The spline's `prob` rises with the onset week and reaches 0.61 in week 11,
-  where the prediction is 0.58. A natural spline with three degrees of
-  freedom cannot follow a step: it starts rising before week 8 and keeps rising
-  after it, overshooting in the last week.
+- The spline's `prob` dips slightly over the first weeks, then rises from week
+  5 to 0.61 in week 11, where the prediction is 0.58. A natural spline with
+  three degrees of freedom cannot follow a step: it starts rising before week 8
+  and keeps rising after it, overshooting in the last week.
 
 ## Six weeks later
 
