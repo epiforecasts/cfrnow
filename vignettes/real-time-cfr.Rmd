@@ -151,15 +151,17 @@ The naive ratio (grey) falls away in the last weeks, because most of their
 deaths have yet to happen: 0.22 in week 11, against the 0.47 of that week's cases
 that die.
 
-For weeks 0 to 9 the `posterior_prob_death()` average is the same under both
+For weeks 0 to 7 the `posterior_prob_death()` average is the same under both
 models and has almost no uncertainty. Nearly every case from those weeks has
 died or has been followed long enough to be a near-certain survivor, and the
-average is the realised fraction. It follows the step in week 8 exactly. It also
-follows the chance variation between weeks, such as the 0.32 in week 3, where
-the true CFR is 0.25.
+average is the realised fraction. That includes the chance variation between
+weeks, such as the 0.32 in week 3, where the true CFR is 0.25. Weeks 8 and 9
+are mostly resolved and already show the step: under the constant model the
+average is 0.46 and 0.53, against realised fractions of 0.48 and 0.55, and the
+remaining gap comes from their few unresolved cases.
 
-The models differ in weeks 10 and 11. Most of their cases are unresolved, and
-the probabilities for those cases stay close to their `prob`:
+The models differ most in weeks 10 and 11. Their cases are largely unresolved,
+and the probabilities for those cases stay close to their `prob`:
 
 - The constant model's `prob` of 0.32 is an average over the whole outbreak. It
   pulls the weekly average down to 0.44 in week 10 and 0.37 in week 11.
