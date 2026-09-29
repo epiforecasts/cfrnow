@@ -79,16 +79,16 @@ either lost or genuinely unresolved. Without it, a case unresolved far
 longer than the delays allow has almost no probability, which pulls the
 delay's tail out or stops the sampler from starting.
 
-How much the data can say depends on whether loss follows the outcome. One
+Whether loss can be estimated depends on how it relates to the outcome. One
 probability for both (\code{loss_prior = Beta(1, 1)}) is identified by the
 recorded deaths, the recorded recoveries and the cases that stay unresolved,
 and it assumes a lost case's CFR matches everyone else's. Fixing one half
 (\code{list(death = 0, recovery = Beta(1, 1))}, where a death is always written
-down and a discharge may not be) is identified too. Estimating both asks for
-one number more than the data holds, so the priors decide the split and
-\code{fit_cfr()} warns; treat that as a sensitivity analysis. A death-only fit
-identifies loss weakly whichever form is used, because the recorded
-recoveries are what separate it from the outcome probability.
+down and a discharge may not be) is identified too. Estimating both leaves
+one parameter unidentified: the priors decide the split and \code{fit_cfr()}
+warns, so treat that fit as a sensitivity analysis. In a death-only fit,
+loss is weakly identified whichever form is used, because only the recorded
+recoveries separate it from the outcome probability.
 
 Where a case has a date it was last known unresolved, censoring it there
 through \code{\link[=prepare_cfr_data]{prepare_cfr_data()}}'s \code{last_contact_date} uses that timing instead

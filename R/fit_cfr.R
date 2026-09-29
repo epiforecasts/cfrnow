@@ -20,16 +20,16 @@
 #' longer than the delays allow has almost no probability, which pulls the
 #' delay's tail out or stops the sampler from starting.
 #'
-#' How much the data can say depends on whether loss follows the outcome. One
+#' Whether loss can be estimated depends on how it relates to the outcome. One
 #' probability for both (`loss_prior = Beta(1, 1)`) is identified by the
 #' recorded deaths, the recorded recoveries and the cases that stay unresolved,
 #' and it assumes a lost case's CFR matches everyone else's. Fixing one half
 #' (`list(death = 0, recovery = Beta(1, 1))`, where a death is always written
-#' down and a discharge may not be) is identified too. Estimating both asks for
-#' one number more than the data holds, so the priors decide the split and
-#' `fit_cfr()` warns; treat that as a sensitivity analysis. A death-only fit
-#' identifies loss weakly whichever form is used, because the recorded
-#' recoveries are what separate it from the outcome probability.
+#' down and a discharge may not be) is identified too. Estimating both leaves
+#' one parameter unidentified: the priors decide the split and `fit_cfr()`
+#' warns, so treat that fit as a sensitivity analysis. In a death-only fit,
+#' loss is weakly identified whichever form is used, because only the recorded
+#' recoveries separate it from the outcome probability.
 #'
 #' Where a case has a date it was last known unresolved, censoring it there
 #' through [prepare_cfr_data()]'s `last_contact_date` uses that timing instead
@@ -298,12 +298,12 @@ fit_cfr <- function(data,
 
 #' Check that a loss-to-follow-up probability can be estimated
 #'
-#' Loss is told apart from the outcome probability by cases that stay
-#' unresolved, so a fit with none of them cannot estimate it. Recorded
-#' recoveries separate the two further: without them the death count alone
-#' identifies only the product of `prob` and the chance of being kept. Letting
-#' both outcomes be lost at their own rate asks the data for one number more
-#' than it holds, so the priors decide the split.
+#' Cases that stay unresolved separate loss from the outcome probability, so a
+#' fit with none of them cannot estimate it. Recorded recoveries separate the
+#' two further: without them the death count alone identifies only the product
+#' of `prob` and the chance of being kept. Letting both outcomes be lost at
+#' their own rate leaves one parameter unidentified, and the priors decide the
+#' split.
 #' @param cure An `epidist_cure_model`.
 #' @param use_recovery Whether the fit times recoveries.
 #' @param loss A `.loss_spec()` list.
