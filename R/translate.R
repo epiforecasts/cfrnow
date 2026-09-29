@@ -209,13 +209,12 @@
 # "Intercept" when the prob formula keeps its intercept, else "b" to place the
 # prior on the (logit-scale) coefficients of an intercept-free formula.
 .prob_prior_to_brms <- function(prob_prior, class = "Intercept",
-                                dpar = "prob") {
+                                dpar = "prob",
+                                arg = paste0("`", dpar, "_prior`")) {
   ok <- inherits(prob_prior, "dist_spec") &&
     get_distribution(prob_prior) == "beta"
   if (!ok) {
-    stop("`", dpar, "_prior` must be a distspec Beta() distribution.",
-      call. = FALSE
-    )
+    stop(arg, " must be a distspec Beta() distribution.", call. = FALSE)
   }
   p <- get_parameters(prob_prior)
   a <- p$shape1
@@ -285,7 +284,9 @@
       parts[[nm]] <- dpar_of[[nm]]
       dpars <- c(dpars, dpar_of[[nm]])
       prior <- c(
-        prior, .prob_prior_to_brms(p, "Intercept", dpar_of[[nm]])
+        prior, .prob_prior_to_brms(p, "Intercept", dpar_of[[nm]],
+          arg = sprintf("`loss_prior$%s`", nm)
+        )
       )
     }
   }

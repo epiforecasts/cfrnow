@@ -229,4 +229,9 @@ test_that(".loss_spec rejects malformed loss priors", {
   expect_error(
     .loss_spec(list(death = 0, recovery = -0.1)), "probability below 1"
   )
+  expect_error(
+    .loss_spec(list(death = Normal(0, 1), recovery = 0)),
+    "`loss_prior$death` must be a distspec Beta()", fixed = TRUE
+  )
+  expect_error(.loss_spec(Normal(0, 1)), "`loss_prior` must be", fixed = TRUE)
 })
