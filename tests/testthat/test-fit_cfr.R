@@ -328,13 +328,24 @@ test_that("a loss_prior recovers the loss probability and the delays", {
   expect_true(all(s$rhat < 1.05))
 })
 
-test_that("a loss_prior needs unresolved cases and warns without recoveries", {
-  d <- prepare_cfr_data(
-    simulate_linelist(n = 100, cfr = 0.4, delay = LogNormal(2.4, 0.5)),
-    obs_time = NULL
+test_that("a loss_prior needs unresolved cases and a recovery delay", {
+  ll <- simulate_linelist(
+    n = 100, cfr = 0.4, delay = LogNormal(2.4, 0.5),
+    recovery = LogNormal(2.6, 0.4)
   )
+  d <- prepare_cfr_data(ll, obs_time = NULL)
   expect_error(
     fit_cfr(d, loss_prior = Beta(1, 1)), "still unresolved"
+  )
+
+  # in real time, but with recoveries left untimed
+  d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+  expect_error(
+    fit_cfr(d, loss_prior = Beta(1, 1)), "needs a `recovery_delay`"
+  )
+  expect_error(
+    fit_cfr(d, loss_prior = list(death = Beta(1, 1), recovery = 0)),
+    "needs a `recovery_delay`"
   )
 })
 

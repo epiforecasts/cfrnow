@@ -112,7 +112,7 @@ test_that(".assert_within_max rejects data outside a bounded delay", {
   expect_true(.assert_within_max(cure, 60, NULL))
 })
 
-test_that(".assert_loss_identified needs unresolved cases", {
+test_that(".assert_loss_identified needs unresolved cases and timed recoveries", {
   shared <- .loss_spec(Beta(1, 1))
   both <- .loss_spec(list(death = Beta(1, 9), recovery = Beta(1, 3)))
   one_sided <- .loss_spec(list(death = 0, recovery = Beta(1, 1)))
@@ -132,8 +132,8 @@ test_that(".assert_loss_identified needs unresolved cases", {
   expect_true(.assert_loss_identified(censored, TRUE, shared))
   expect_true(.assert_loss_identified(censored, TRUE, one_sided))
 
-  expect_warning(
-    .assert_loss_identified(censored, FALSE, shared), "weakly identified"
+  expect_error(
+    .assert_loss_identified(censored, FALSE, shared), "needs a `recovery_delay`"
   )
   # both halves estimated: the data cannot say which outcome goes missing
   expect_warning(

@@ -27,9 +27,9 @@
 #' (`list(death = 0, recovery = Beta(1, 1))`, where a death is always written
 #' down and a discharge may not be) is identified too. Estimating both leaves
 #' one parameter unidentified: the priors decide the split and `fit_cfr()`
-#' warns, so treat that fit as a sensitivity analysis. In a death-only fit,
-#' loss is weakly identified whichever form is used, because only the recorded
-#' recoveries separate it from the outcome probability.
+#' warns, so treat that fit as a sensitivity analysis. A `loss_prior` needs a
+#' `recovery_delay`, because only timed recoveries separate loss from the
+#' outcome probability; without one, `fit_cfr()` stops.
 #'
 #' Where a case has a date it was last known unresolved, censoring it there
 #' through [prepare_cfr_data()]'s `last_contact_date` uses that timing instead
@@ -72,8 +72,8 @@
 #'   [distspec::Beta()] gives one probability whatever the outcome; a list with
 #'   `death` and `recovery` entries, each a `Beta()` or a fixed number, gives
 #'   them their own (e.g. `list(death = 0, recovery = Beta(1, 1))` where every
-#'   death is recorded). `NULL` (the default) assumes every outcome is
-#'   eventually recorded.
+#'   death is recorded). Needs a `recovery_delay`. `NULL` (the default)
+#'   assumes every outcome is eventually recorded.
 #' @param formula A `brms` formula for the delay location `mu` and, optionally,
 #'   `prob` (`prob ~ ...`). Defaults to `mu ~ 1`. `prob_prior` normally lands on
 #'   the `prob` intercept; when the `prob` formula drops the intercept (e.g.
@@ -299,11 +299,12 @@ fit_cfr <- function(data,
 #' Check that a loss-to-follow-up probability can be estimated
 #'
 #' Cases that stay unresolved separate loss from the outcome probability, so a
-#' fit with none of them cannot estimate it. Recorded recoveries separate the
-#' two further: without them the death count alone identifies only the product
-#' of `prob` and the chance of being kept. Letting both outcomes be lost at
-#' their own rate leaves one parameter unidentified, and the priors decide the
-#' split.
+#' fit with none of them cannot estimate it. Timed recoveries separate the two
+#' further. Without them, a fit with no recoveries identifies only the product
+#' of `prob` and the chance of being kept, and one that scores untimed
+#' recoveries as resolved is biased towards no loss, so both are rejected.
+#' Letting both outcomes be lost at their own rate leaves one parameter
+#' unidentified, and the priors decide the split.
 #' @param cure An `epidist_cure_model`.
 #' @param use_recovery Whether the fit times recoveries.
 #' @param loss A `.loss_spec()` list.
@@ -317,12 +318,13 @@ fit_cfr <- function(data,
     )
   }
   if (!use_recovery) {
-    warning("`loss_prior` without timed recoveries: the loss probability and ",
-      "the outcome probability are weakly identified, so the estimate will ",
-      "lean on their priors.",
+    stop("`loss_prior` needs a `recovery_delay`: without timed recoveries a ",
+      "lost case cannot be told apart from a survivor who has not yet ",
+      "resolved, so the loss estimate is pulled towards 0.",
       call. = FALSE
     )
-  } else if (length(loss$dpars) > 1) {
+  }
+  if (length(loss$dpars) > 1) {
     warning("`loss_prior` estimates a loss probability for deaths and for ",
       "recoveries, which the data cannot tell apart: the split follows the ",
       "priors. Treat the fit as a sensitivity analysis, or fix one of them.",
