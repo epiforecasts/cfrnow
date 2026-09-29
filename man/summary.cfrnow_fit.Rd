@@ -68,6 +68,7 @@ single value.
 \seealso{
 Other fit:
 \code{\link[=fit_cfr]{fit_cfr()}},
+\code{\link[=posterior_prob_death]{posterior_prob_death()}},
 \code{\link[=pp_check_cfr]{pp_check_cfr()}}
 }
 \concept{fit}

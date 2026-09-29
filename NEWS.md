@@ -5,7 +5,14 @@
   followed up for much longer than the delay rounds the CDF to 1, which made
   `log1m()` reject every draw with `log1m: x is 1, but must be less than or
   equal to 1` and left the chains stuck at their starting values.
-
+* `pp_check_cfr()` now draws Weibull-family replicate delays from a Weibull
+  distribution instead of a gamma, so posterior-predictive checks for a
+  Weibull fit compare against the right spread of delays.
+* Added `posterior_prob_death()`, returning draws of the posterior probability
+  of death for each case: `prob` updated by Bayes' rule on a censored case's
+  follow-up, or the deterministic outcome for a resolved case. Averaging these
+  draws over cases by onset date gives a real-time CFR for each onset period
+  without a time trend in `prob`.
 * The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
   is a case fatality ratio only when the line list runs from onset to death; the
   same model can fit a hospital fatality ratio or other outcome probability for a
