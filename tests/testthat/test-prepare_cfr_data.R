@@ -222,3 +222,76 @@ test_that("a recorded outcome is followed to its own date, not the last contact"
   expect_identical(d$cases$follow_up, c(31, 31, 5))
   expect_identical(d$cases$y, c(9L, 7L, 5L))
 })
+
+test_that("obs_time can vary by case", {
+  ll <- data.frame(
+    onset_date = rep(as.Date("2026-01-01"), 4),
+    death_date = as.Date(c("2026-01-10", "2026-01-10", NA, NA)),
+    site = c("a", "b", "a", "b"),
+    cutoff = as.Date(c("2026-01-31", "2026-01-05", "2026-01-31", "2026-01-05"))
+  )
+  # site b's data only reaches the analyst on the 5th, so its death is not yet
+  # known and its survivor is censored earlier
+  d <- prepare_cfr_data(ll, obs_time = "cutoff")
+  expect_equal(d$cases$outcome, c(1, 0, 0, 0))
+  expect_identical(d$cases$y, c(9L, 5L, 31L, 5L))
+  expect_identical(d$cases$obs_time, ll$cutoff)
+
+  # the same dates passed as a vector, and a single date for everyone
+  expect_identical(
+    prepare_cfr_data(ll, obs_time = ll$cutoff)$cases, d$cases
+  )
+  one <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-31"))
+  expect_equal(one$cases$outcome, c(1, 1, 0, 0))
+
+  expect_error(
+    prepare_cfr_data(ll, obs_time = ll$cutoff[1:3]), "one date, one per row"
+  )
+  expect_error(
+    prepare_cfr_data(ll, obs_time = as.Date(NA)), "must be a valid date"
+  )
+})
+
+test_that("a case whose onset follows its own cut-off is excluded", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-01", "2026-01-20")),
+    death_date = as.Date(c(NA, NA)),
+    cutoff = as.Date(c("2026-01-31", "2026-01-10"))
+  )
+  expect_message(
+    d <- prepare_cfr_data(ll, obs_time = "cutoff"),
+    "1 case\\(s\\) with onset after the cut-off excluded"
+  )
+  expect_identical(nrow(d$cases), 1L)
+})
+
+test_that("the returned cut-off and follow-up line up with the kept cases", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-01", NA, "2026-01-02")),
+    death_date = as.Date(c(NA, NA, NA)),
+    cutoff = as.Date(c("2026-01-31", "2026-01-10", "2026-01-20"))
+  )
+  suppressWarnings(d <- prepare_cfr_data(ll, obs_time = "cutoff"))
+  # the middle row is unusable, so the cut-offs must skip it too
+  expect_identical(nrow(d$cases), 2L)
+  expect_identical(d$obs_time, as.Date(c("2026-01-31", "2026-01-20")))
+  expect_identical(d$obs_time, d$cases$obs_time)
+
+  # one cut-off for the whole line list still comes back as one date
+  suppressWarnings(one <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-31")))
+  expect_identical(one$obs_time, as.Date("2026-01-31"))
+})
+
+test_that("follow-up is measured from the onset window, not the onset date", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-01", NA)),
+    onset_lower = as.Date(c("2026-01-01", "2026-01-03")),
+    onset_upper = as.Date(c("2026-01-01", "2026-01-05")),
+    death_date = as.Date(c(NA, NA))
+  )
+  d <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-20"))
+  # a case kept on its window alone still has a follow-up the checks can use
+  expect_false(anyNA(d$cases$follow_up))
+  expect_identical(d$cases$follow_up, c(20, 18))
+  expect_identical(d$cases$follow_up, as.numeric(d$cases$y))
+})

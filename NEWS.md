@@ -1,5 +1,11 @@
 # cfrnow (development version)
 
+* `prepare_cfr_data()`'s `obs_time` accepts one cut-off per case, as a vector
+  or the name of a `linelist` column, for data that reaches the analyst at
+  different times by site. Each case's deaths, recoveries and follow-up are
+  then read against its own cut-off, and `pp_check_cfr()` replays the
+  truncation case by case.
+
 * `fit_cfr()` gains `loss_prior`, a prior on the probability that a case is
   lost to follow-up and its outcome never recorded. A fit that allows for loss
   estimates it alongside the outcome probability and the delays, and
@@ -9,6 +15,7 @@
   `list(death = 0, recovery = Beta(1, 1))` gives each outcome its own, fixed or
   estimated. Estimating both is a sensitivity analysis, since the data cannot
   tell them apart, and `fit_cfr()` warns.
+
 * `prepare_cfr_data()` gains `last_contact_date`, the column holding the date a
   case with no recorded outcome was last known unresolved. Such a case is
   censored there instead of at the cut-off, in retrospective fits too.

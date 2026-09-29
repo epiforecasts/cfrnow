@@ -153,7 +153,7 @@
   if (is.null(h)) {
     # a fit from before the follow-up was stored: fall back to the cut-off
     obs_time <- object$cfrnow$obs_time %||% as.Date(NA)
-    h <- if (is.na(obs_time)) {
+    h <- if (all(is.na(obs_time))) {
       rep(Inf, nrow(d))
     } else {
       as.numeric(as.Date(obs_time) - as.Date(onset)) + 1
