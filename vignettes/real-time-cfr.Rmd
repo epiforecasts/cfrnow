@@ -174,16 +174,17 @@ and the probabilities for those cases stay close to their `prob`:
 
 ## Six weeks later
 
-```{r late, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates six weeks after the last onset. The predicted fatal fraction equals the realised fractions in every week under both models; the two models' prob still differ."}
+```{r late, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates six weeks after the last onset. The predicted fatal fraction equals the realised fractions in every week but the last under both models; the two models' prob still differ."}
 plot_weekly("late")
 ```
 
 With six more weeks of follow-up nearly every case has resolved. For both
-models, the predicted fatal fraction is now the realised fraction in every week,
-and the naive ratio has caught up with it. The two estimates of `prob` still
-differ, because each is the model's estimate of the underlying CFR, and more
-follow-up only narrows it. The constant model gives 0.33 throughout, and the
-spline's ramp is flatter at the end, at 0.53 in week 11.
+models, the predicted fatal fraction is now the realised fraction in every week
+but the last, where one case is still unresolved, and the naive ratio has caught
+up with it. The two estimates of `prob` still differ, because each is the
+model's estimate of the underlying CFR, and more follow-up only narrows it. The
+constant model gives 0.33 throughout, and the spline's ramp is flatter at the
+end, at 0.53 in week 11.
 
 ## Interpreting the two estimates
 
