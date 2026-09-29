@@ -352,9 +352,9 @@ test_that("a loss_prior needs unresolved cases and a recovery delay", {
   ll$recovery_date <- NULL
   d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
   expect_error(
-    fit_cfr(d,
+    suppressWarnings(fit_cfr(d,
       recovery_delay = LogNormal(2.6, 0.4), loss_prior = Beta(1, 1)
-    ),
+    )),
     "needs recorded recoveries"
   )
 })
@@ -427,4 +427,17 @@ test_that("an outcome-specific loss_prior recovers a recovery-only loss", {
   # recoveries as deaths that have not happened yet
   shared <- do.call(fit_cfr, c(list(d), args, list(loss_prior = Beta(1, 1))))
   expect_gt(summary(shared)[1, "q2.5"], 0.4)
+})
+
+test_that("a recovery_delay with no recoveries to time is flagged", {
+  ll <- simulate_linelist(n = 50, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+  d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+  expect_warning(
+    fit <- fit_cfr(d,
+      delay = LogNormal(2.4, 0.5), recovery_delay = LogNormal(2.6, 0.4),
+      empty = TRUE
+    ),
+    "`recovery_delay` is ignored"
+  )
+  expect_false(fit$cfrnow$use_recovery)
 })
