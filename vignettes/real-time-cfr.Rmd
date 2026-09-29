@@ -145,7 +145,7 @@ plot_weekly <- function(cut) {
 
 ## One week after the last onset
 
-```{r early, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates one week after the last onset. The constant model's prob is flat at 0.32; the spline's prob rises smoothly. The predicted fatal fraction matches the realised fractions for resolved weeks and, for the last two weeks, is pulled towards each model's prob."}
+```{r early, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates one week after the last onset. The constant model's prob is flat at 0.32; the spline's prob rises smoothly. The predicted fatal fraction matches the realised fractions for the earlier weeks and, for the last two weeks, is pulled towards each model's prob."}
 plot_weekly("early")
 ```
 
@@ -157,10 +157,10 @@ For weeks 0 to 7 the predicted fatal fraction is the same under both models and
 has almost no uncertainty. Nearly every case from those weeks has died or has
 been followed long enough to be a near-certain survivor, and the prediction is
 the realised fraction. That includes the chance variation between weeks, such as
-the 0.32 in week 3, where the true CFR is 0.25. Weeks 8 and 9 are mostly
-resolved and already show the step: under the constant model the prediction is
-0.46 and 0.53, against realised fractions of 0.48 and 0.55, and the remaining
-gap comes from their few unresolved cases.
+the 0.32 in week 3, where the true CFR is 0.25. Most deaths from weeks 8 and 9
+have already happened, and those weeks already show the step: under the constant
+model the prediction is 0.46 and 0.53, against realised fractions of 0.48 and
+0.55, and the remaining gap comes from the deaths still to come.
 
 The models differ most in weeks 10 and 11. Their cases are largely unresolved,
 and the probabilities for those cases stay close to their `prob`:
@@ -178,10 +178,11 @@ and the probabilities for those cases stay close to their `prob`:
 plot_weekly("late")
 ```
 
-With six more weeks of follow-up nearly every case has resolved. For both
-models, the predicted fatal fraction is now the realised fraction in every week
-but the last, where one case is still unresolved, and the naive ratio has caught
-up with it. The two estimates of `prob` still differ, because each is the
+With six more weeks of follow-up nearly every fatal case has died, and the
+survivors have been followed long enough to be near-certain. For both models,
+the predicted fatal fraction is now the realised fraction in every week but the
+last, where one death has yet to be recorded, and the naive ratio has caught up
+with it. The two estimates of `prob` still differ, because each is the
 model's estimate of the underlying CFR, and more follow-up only narrows it. The
 constant model gives 0.33 throughout, and the spline's ramp is flatter at the
 end, at 0.53 in week 11.
@@ -190,16 +191,18 @@ end, at 0.53 in week 11.
 
 `prob` is the model's CFR for a case from that week. With a constant formula it
 is one number for the whole outbreak. With a time-varying formula it is a curve
-whose last weeks rest on few resolved cases, which makes them depend on the
-shape the formula allows.
+whose last weeks rest on cases with little follow-up, which makes them depend on
+the shape the formula allows.
 
 The predicted fatal fraction estimates the fraction of that week's cases that
-die. For resolved cases it uses what happened; for unresolved cases it falls
-back on the model's `prob`. Its interval covers the model's parameters and
+die. For a recorded death it uses what happened; for a case still unresolved it
+falls back on the model's `prob`, lowered by how long the case has gone without
+dying. Its interval covers the model's parameters and
 whether each unresolved case dies, but it assumes the model is right: in week 11
 at the early cut-off, the realised 0.47 lies outside the interval of both
-models. Once every case has resolved, the interval has zero width, even though
-the underlying CFR is still uncertain.
+models. Once the fatal cases have died and the survivors have been followed
+well past the delay, the interval is close to zero width, even though the
+underlying CFR is still uncertain.
 
 In practice:
 
