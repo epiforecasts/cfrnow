@@ -80,8 +80,10 @@ For a fit, `brms::posterior_epred(fit, dpar = "prob")` gives the draws of
 case's probability of death. A death already recorded counts as 1 and a
 recovery as 0. A case still unresolved at the cut-off gets its `prob` updated by
 how long it has gone without dying: the longer it has been followed, the lower
-its probability. Averaging over the cases in a week, draw by draw, gives
-posterior draws of that week's fatal fraction.
+its probability. Averaging these probabilities over a week's cases gives the
+fatal fraction the model expects for that week. For an interval on the fraction
+that actually dies, we also draw each case's outcome from its probability, once
+per posterior draw, and take the fraction of fatal outcomes in each week.
 
 ```{r nowcast, eval = FALSE}
 weekly <- function(draws, week) {
@@ -92,7 +94,8 @@ weekly <- function(draws, week) {
 week_of_case <- cure$week[match(rownames(fit_spline$data), rownames(cure))]
 
 pi <- posterior::as_draws_matrix(posterior_prob_death(fit_spline))
-nowcast <- weekly(pi, week_of_case)
+fatal <- matrix(rbinom(length(pi), 1, pi), nrow(pi))
+nowcast <- weekly(fatal, week_of_case)
 prob <- weekly(brms::posterior_epred(fit_spline, dpar = "prob"), week_of_case)
 apply(nowcast, 2, quantile, probs = c(0.05, 0.5, 0.95))
 ```
@@ -187,9 +190,11 @@ shape the formula allows.
 
 The weekly average of `posterior_prob_death()` estimates the fraction of that
 week's cases that die. For resolved cases it uses what happened; for unresolved
-cases it falls back on the model's `prob`. Its interval covers only what is still
-unknown about those cases. Once they have all resolved, it has zero width,
-even though the underlying CFR is still uncertain.
+cases it falls back on the model's `prob`. Its interval covers the model's
+parameters and whether each unresolved case dies, but it assumes the model is
+right: in week 11 at the early cut-off, the realised 0.47 lies outside the
+interval of both models. Once every case has resolved, the interval has zero
+width, even though the underlying CFR is still uncertain.
 
 In practice:
 

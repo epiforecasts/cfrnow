@@ -85,11 +85,14 @@ for (cut in names(cutoffs)) {
     fit_week <- cure$week[match(rownames(fit$data), rownames(cure))]
     prob <- brms::posterior_epred(fit, dpar = "prob")
     pi <- posterior::as_draws_matrix(posterior_prob_death(fit))
+    # one outcome per case and draw, so the weekly fraction varies with whether
+    # each unresolved case dies as well as with the parameters
+    fatal_draws <- matrix(stats::rbinom(length(pi), 1, pi), nrow(pi))
     results[[paste(cut, model)]] <- cbind(
       cutoff = cut, model = model,
       rbind(
         summarise_draws(prob, fit_week, "prob"),
-        summarise_draws(pi, fit_week, "nowcast")
+        summarise_draws(fatal_draws, fit_week, "nowcast")
       )
     )
   }
