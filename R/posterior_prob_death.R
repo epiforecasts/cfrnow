@@ -84,9 +84,9 @@
 #' delays, censored for the day of onset and truncated at each delay's `max`,
 #' and `S_R = 1` when the fit has no `recovery_delay`. A fit with a
 #' `loss_prior` replaces each survivor function `S` with `l + (1 - l) S`, where
-#' `l` is the probability that a case with that outcome is lost to follow-up. A case already resolved by the cut-off has a
-#' deterministic `pi`: 1 for an observed death, 0 for a recovery or a resolved
-#' non-death.
+#' `l` is the probability that a case with that outcome is lost to follow-up.
+#' A case already resolved by the cut-off has a deterministic `pi`: 1 for an
+#' observed death, 0 for a recovery or a resolved non-death.
 #'
 #' A case with little follow-up (small `y`) has `S_D(y)` close to 1, so its
 #' `pi` sits close to its (covariate-specific) `prob`; only once it has been
