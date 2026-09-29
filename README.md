@@ -91,7 +91,7 @@ ll <- simulate_linelist(
 d <- prepare_cfr_data(ll, obs_time = as.Date("2026-02-20"))
 c(cases = d$n_cases, deaths = d$n_deaths, censored = d$n_cens)
 #>    cases   deaths censored 
-#>      400      180      220
+#>      400      179      221
 ```
 
 Supply the onset-to-death `delay` and a `prob_prior` as
