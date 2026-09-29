@@ -49,6 +49,25 @@ test_that(".delay_survivor matches primarycensored for each supported family", {
   }
 })
 
+test_that(".delay_survivor truncates a bounded delay at its max", {
+  nd <- 2
+  y <- c(10, 14, 15)
+  loc <- matrix(2.4, nd, 3)
+  sc <- matrix(0.5, nd, 3)
+  s <- .delay_survivor("lognormal", y, rep(1, 3), loc, sc, delay_max = 15)
+  for (j in 1:2) {
+    expected <- 1 - primarycensored::pprimarycensored(
+      y[j], stats::plnorm,
+      pwindow = 1, L = -Inf, D = 15, meanlog = 2.4, sdlog = 0.5
+    )
+    expect_equal(s[, j], rep(expected, nd))
+  }
+  # below the untruncated survivor, and 0 once follow-up reaches the bound
+  expect_true(all(s[, 1:2] < .delay_survivor("lognormal", y[1:2], c(1, 1),
+    loc[, 1:2], sc[, 1:2])))
+  expect_equal(s[, 3], rep(0, nd))
+})
+
 test_that(".delay_survivor decreases in y (a longer follow-up survives less)", {
   loc <- matrix(2.4, 5, 1)
   sc <- matrix(0.5, 5, 1)
