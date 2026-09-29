@@ -1,5 +1,8 @@
 # cfrnow (development version)
 
+* Added a "Real-time CFR over time" vignette. It compares a time-varying `prob`
+  with the weekly average of `posterior_prob_death()` on an outbreak whose CFR
+  rises late, at two cut-offs.
 * `prepare_cfr_data()` gives a case with no onset window of its own (`NA` in
   `onset_lower`/`onset_upper`) a one-day window at its onset date, where it
   was previously dropped as unusable. In real time, an onset window that

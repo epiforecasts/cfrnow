@@ -1,0 +1,203 @@
+---
+title: "Real-time CFR over time"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Real-time CFR over time}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+The case fatality ratio often changes during an outbreak, as the population
+affected, the pathogen or the care available changes. This vignette looks at
+two estimates of the CFR for each week of onset. The first is `prob`, the
+probability of death the fitted model gives a case from that week; `fit_cfr()`
+estimates it, and a formula lets it vary over time. The second is the fraction
+of that week's cases that will die, given what has been observed about them so
+far. `posterior_prob_death()` gives that probability for each case, and
+averaging it over a week gives the weekly figure.
+
+The two answer different questions, and they draw on different information. We
+compare them on a simulated outbreak whose CFR rises late, fitted at two
+cut-offs.
+
+## A line list where the CFR rises
+
+Onsets are spread over twelve weeks. The true CFR is 0.25 up to week 7 and 0.5
+from week 8, and the onset-to-death delay is lognormal with a mean of about 13
+days.
+
+```{r simulate, eval = FALSE}
+library(cfrnow)
+set.seed(20260930)
+
+n <- 2000
+onset_start <- as.Date("2026-01-01")
+true_cfr <- function(week) ifelse(week >= 8, 0.5, 0.25)
+
+onset_day <- sample.int(12 * 7, n, replace = TRUE) - 1
+onset_date <- onset_start + onset_day
+week <- onset_day %/% 7
+fatal <- runif(n) < true_cfr(week)
+
+death_date <- as.Date(rep(NA, n))
+death_date[fatal] <- onset_date[fatal] +
+  floor(runif(sum(fatal)) + rlnorm(sum(fatal), 2.41, 0.51))
+ll <- data.frame(onset_date = onset_date, death_date = death_date)
+```
+
+## Two fits at a cut-off
+
+We prepare the data one week after the last onset, add the onset week as a
+column, and fit two models: one with a constant `prob`, and one where `prob`
+follows a natural spline in the onset week. The delay is estimated in both.
+
+```{r fit, eval = FALSE}
+cure <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) + 7) |>
+  as_epidist_cure_model()
+cure$week <- as.numeric(cure$onset - onset_start) %/% 7
+
+onset_to_death <- LogNormal(
+  meanlog = Normal(2.4, 0.2), sdlog = Normal(0.5, 0.15)
+)
+fit_constant <- fit_cfr(cure,
+  delay = onset_to_death,
+  formula = brms::bf(mu ~ 1, prob ~ 1)
+)
+fit_spline <- fit_cfr(cure,
+  delay = onset_to_death,
+  formula = brms::bf(mu ~ 1, prob ~ splines::ns(week, df = 3))
+)
+```
+
+## From per-case probabilities to a weekly CFR
+
+For a fit, `brms::posterior_epred(fit, dpar = "prob")` gives the draws of
+`prob` for every case, and `posterior_prob_death(fit)` gives the draws of each
+case's probability of death. A death already recorded counts as 1 and a
+recovery as 0. A case still unresolved at the cut-off gets its `prob` updated by
+how long it has gone without dying: the longer it has been followed, the lower
+its probability. Averaging over the cases in a week, draw by draw, gives
+posterior draws of that week's fatal fraction.
+
+```{r nowcast, eval = FALSE}
+weekly <- function(draws, week) {
+  sapply(split(seq_along(week), week), function(i) {
+    rowMeans(draws[, i, drop = FALSE])
+  })
+}
+week_of_case <- cure$week[match(rownames(fit_spline$data), rownames(cure))]
+
+pi <- posterior::as_draws_matrix(posterior_prob_death(fit_spline))
+nowcast <- weekly(pi, week_of_case)
+prob <- weekly(brms::posterior_epred(fit_spline, dpar = "prob"), week_of_case)
+apply(nowcast, 2, quantile, probs = c(0.05, 0.5, 0.95))
+```
+
+The fits and summaries shown below were run by `data-raw/real_time_cfr.R` in
+the package sources, which also refits both models six weeks after the last
+onset. The vignette reads its saved results.
+
+```{r read, message = FALSE}
+library(ggplot2)
+rtc <- readRDS(system.file("vignette-data", "real_time_cfr.rds",
+  package = "cfrnow"
+))
+
+plot_weekly <- function(cut) {
+  est <- rtc$estimates[rtc$estimates$cutoff == cut, ]
+  est$quantity <- factor(est$quantity,
+    levels = c("prob", "nowcast"),
+    labels = c("prob", "posterior_prob_death() average")
+  )
+  naive <- rtc$naive[rtc$naive$cutoff == cut, ]
+  ggplot(est, aes(week)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper, fill = quantity), alpha = 0.3) +
+    geom_line(aes(y = median, colour = quantity), linewidth = 0.8) +
+    geom_step(
+      data = rtc$truth, aes(x = week - 0.5, y = true_cfr), direction = "hv",
+      linetype = "dashed"
+    ) +
+    geom_point(data = rtc$truth, aes(y = realised), shape = 4, size = 2) +
+    geom_point(data = naive, aes(y = naive), colour = "grey50") +
+    facet_wrap(~model) +
+    scale_colour_brewer(palette = "Dark2") +
+    scale_fill_brewer(palette = "Dark2") +
+    labs(
+      x = "onset week", y = "CFR", colour = NULL, fill = NULL,
+      caption = paste(
+        "Dashed: true CFR. Crosses: fraction of each week's cases that die.",
+        "Grey points: deaths / cases at the cut-off."
+      )
+    ) +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+}
+```
+
+## One week after the last onset
+
+```{r early, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates one week after the last onset. The constant model's prob is flat at 0.32; the spline's prob rises smoothly. The posterior_prob_death() average matches the realised fractions for resolved weeks and, for the last two weeks, is pulled towards each model's prob."}
+plot_weekly("early")
+```
+
+The naive ratio (grey) falls away in the last weeks, because most of their
+deaths have yet to happen: 0.22 in week 11, against the 0.47 of that week's cases
+that die.
+
+For weeks 0 to 9 the `posterior_prob_death()` average is the same under both
+models and has almost no uncertainty. Nearly every case from those weeks has
+died or has been followed long enough to be a near-certain survivor, and the
+average is the realised fraction. It follows the step in week 8 exactly. It also
+follows the chance variation between weeks, such as the 0.32 in week 3, where
+the true CFR is 0.25.
+
+The models differ in weeks 10 and 11. Most of their cases are unresolved, and
+the probabilities for those cases stay close to their `prob`:
+
+- The constant model's `prob` of 0.32 is an average over the whole outbreak. It
+  pulls the weekly average down to 0.44 in week 10 and 0.37 in week 11.
+- The spline's `prob` rises with the onset week and reaches 0.61 in week 11,
+  where the weekly average is 0.58. A natural spline with three degrees of
+  freedom cannot follow a step: it starts rising before week 8 and keeps rising
+  after it, overshooting in the last week.
+
+## Six weeks later
+
+```{r late, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates six weeks after the last onset. The posterior_prob_death() average equals the realised fractions in every week under both models; the two models' prob still differ."}
+plot_weekly("late")
+```
+
+With six more weeks of follow-up nearly every case has resolved. The weekly
+average of `posterior_prob_death()` is now the realised fraction in every week,
+for both models, and the naive ratio has caught up with it. The two estimates of
+`prob` still differ, because each is the model's estimate of the underlying CFR,
+and more follow-up only narrows it. The constant model gives 0.33 throughout,
+and the spline's ramp is flatter at the end, at 0.53 in week 11.
+
+## Interpreting the two estimates
+
+`prob` is the model's CFR for a case from that week. With a constant formula it
+is one number for the whole outbreak. With a time-varying formula it is a curve
+whose last weeks rest on few resolved cases, which makes them depend on the
+shape the formula allows.
+
+The weekly average of `posterior_prob_death()` estimates the fraction of that
+week's cases that die. For resolved cases it uses what happened; for unresolved
+cases it falls back on the model's `prob`. Its interval covers only what is still
+unknown about those cases. Once they have all resolved, it has zero width,
+even though the underlying CFR is still uncertain.
+
+In practice:
+
+- Report the weekly average for the fatal fraction among cases seen so far, and
+  `prob` for the underlying CFR, for instance to compare groups or project to
+  new cases.
+- For the most recent weeks the weekly average is only as good as the model's
+  `prob` for them. With a constant formula, a recent change shows up only as its
+  cases resolve. A time-varying formula lets it show earlier, but at the cost of
+  depending on the shape the formula allows.
+- Refit with more than one formula and see how much the recent weeks move.
