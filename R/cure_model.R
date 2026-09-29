@@ -199,7 +199,6 @@ epidist_model_prior.epidist_cure_model <- function(data, formula, ...) NULL
     },
     death_kept = kept(parts$death),
     recovery_kept = kept(parts$recovery),
-    death_lost = kept(parts$death),
     unresolved_terms = paste(mixture, collapse = ",\n        ")
   )
 }
