@@ -97,6 +97,19 @@ test_that("onset windows widen the primary censoring width", {
   expect_equal(d$death_width, 4) # (upper - lower) + 1
 })
 
+test_that("a case with no onset window keeps a one-day window at its onset", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-05", "2026-01-06")),
+    # only the first case's onset is uncertain
+    onset_lower = as.Date(c("2026-01-03", NA)),
+    onset_upper = as.Date(c("2026-01-05", NA)),
+    death_date = as.Date(c(NA, NA))
+  )
+  expect_no_warning(d <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-20")))
+  expect_identical(nrow(d$cases), 2L)
+  expect_equal(d$cases$pwindow, c(3, 1))
+})
+
 test_that("recovered-by-cutoff cases are timed recoveries, not censored", {
   ll <- data.frame(
     onset_date = as.Date("2026-01-01") + c(0, 1, 2),

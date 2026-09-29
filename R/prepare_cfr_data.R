@@ -9,8 +9,9 @@
 #' being censored, so recording recoveries tightens the estimate.
 #'
 #' Onset is taken over the day-window `[onset_lower, onset_upper]` when those
-#' columns are present (defaulting to a one-day window at `onset_date`). Deaths
-#' and recoveries are recorded to the day.
+#' columns are present, defaulting to a one-day window at `onset_date` for a
+#' case whose window is missing (`NA`), or for every case when the columns are
+#' absent. Deaths and recoveries are recorded to the day.
 #'
 #' Records that cannot be used are dropped with a warning: a missing onset, an
 #' inverted onset window (`onset_upper < onset_lower`), a death with an
@@ -87,8 +88,12 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
     if (col %in% names(linelist)) as.Date(linelist[[col]]) else default
   }
   onset <- as.Date(linelist$onset_date)
+  # a window given only for the cases whose onset is uncertain: the others
+  # keep the one-day window at their onset date
   onset_lo <- optional_date_col("onset_lower", onset)
   onset_up <- optional_date_col("onset_upper", onset)
+  onset_lo[is.na(onset_lo)] <- onset[is.na(onset_lo)]
+  onset_up[is.na(onset_up)] <- onset[is.na(onset_up)]
   death <- as.Date(linelist$death_date)
   no_recovery <- as.Date(rep(NA, nrow(linelist)))
   recovery <- optional_date_col("recovery_date", no_recovery)

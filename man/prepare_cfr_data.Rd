@@ -76,8 +76,9 @@ being censored, so recording recoveries tightens the estimate.
 }
 \details{
 Onset is taken over the day-window \verb{[onset_lower, onset_upper]} when those
-columns are present (defaulting to a one-day window at \code{onset_date}). Deaths
-and recoveries are recorded to the day.
+columns are present, defaulting to a one-day window at \code{onset_date} for a
+case whose window is missing (\code{NA}), or for every case when the columns are
+absent. Deaths and recoveries are recorded to the day.
 
 Records that cannot be used are dropped with a warning: a missing onset, an
 inverted onset window (\code{onset_upper < onset_lower}), a death with an
