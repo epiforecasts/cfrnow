@@ -13,10 +13,10 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 
 Real-time case fatality ratio (CFR) estimation from line-list data,
 using a Bayesian mixture-cure survival model. `cfrnow` is registered as
-an [epidist](https://epidist.epinowcast.org/) model type, so `prob`
-(the fitted event probability – a CFR when the line list runs from
-onset to death) and the onset-to-death delay both take `brms`
-formulas. You can put covariates (or a time-varying effect) on either.
+an [epidist](https://epidist.epinowcast.org/) model type, so `prob` (the
+fitted event probability – a CFR when the line list runs from onset to
+death) and the onset-to-death delay both take `brms` formulas. You can
+put covariates (or a time-varying effect) on either.
 
 ## Installation
 
@@ -60,10 +60,9 @@ deaths.
 
 `cfrnow` conditions on neither. Each case is fatal with probability
 `prob`; a fatal case dies after an interval-censored onset-to-death
-delay `F`; and a case still unresolved at the cut-off is
-right-censored, contributing `1 - prob * F(t)` (it is either non-fatal
-or fatal but not yet resolved). Hold `F` fixed and you recover the
-Ghani/Nishiura
+delay `F`; and a case still unresolved at the cut-off is right-censored,
+contributing `1 - prob * F(t)` (it is either non-fatal or fatal but not
+yet resolved). Hold `F` fixed and you recover the Ghani/Nishiura
 estimator ([Ghani et al. 2005](https://doi.org/10.1093/aje/kwi230);
 [Nishiura et al. 2009](https://doi.org/10.1371/journal.pone.0006852));
 here the model co-estimates `F` and carries its uncertainty through.
@@ -99,8 +98,8 @@ Supply the onset-to-death `delay` and a `prob_prior` as
 [distspec](https://epiforecasts.io/distspec/) distributions. A native
 delay parameter can be a `Normal()` prior (co-estimated) or a fixed
 number (held fixed; fixing the whole delay gives the Ghani/Nishiura
-estimator). The `prob_prior` is a `Beta()` and matters because `prob`
-is weakly identified early on: `Beta(1, 1)` is uniform, `Beta(1, 9)`
+estimator). The `prob_prior` is a `Beta()` and matters because `prob` is
+weakly identified early on: `Beta(1, 1)` is uniform, `Beta(1, 9)`
 favours a low probability, and `Beta(6.6, 13.4)` (mean 0.33) suits a
 high-fatality pathogen.
 

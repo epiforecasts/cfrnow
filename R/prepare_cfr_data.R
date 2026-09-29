@@ -15,8 +15,13 @@
 #' Records that cannot be used are dropped with a warning: a missing onset, an
 #' inverted onset window (`onset_upper < onset_lower`), a death with an
 #' impossible onset-to-death delay (negative, or longer than `max_delay`), or a
-#' recovery dated before onset. In real time, cases whose onset falls after
-#' `obs_time` are not yet known and are excluded with a message.
+#' recovery dated before onset. In real time, a case whose onset falls after
+#' its own `obs_time` is not yet known and is excluded with a message.
+#'
+#' Data often reaches the analyst at different times by site, so `obs_time` may
+#' give each case its own cut-off rather than one shared by the whole line
+#' list: a case's deaths, recoveries, follow-up and exclusion are all judged
+#' against its own cut-off, not the latest one in the data.
 #'
 #' @param linelist A data frame with an `onset_date` column, an optional
 #'   `onset_lower`/`onset_upper` onset window, a `death_date` column (`NA` for
@@ -25,12 +30,14 @@
 #'   optional
 #'   `recovery_date` column (`NA` unless the case is a recorded non-fatal
 #'   recovery). Dates may be `Date` or coercible.
-#' @param obs_time Real-time cut-off (`Date` or coercible), or `NULL` for a
-#'   retrospective fit in which every recorded death counts and survivors are
-#'   treated as fully resolved. In real time, a case with a recovery on or
-#'   before `obs_time` is resolved; one still alive and unresolved is
-#'   right-censored; and a death dated after `obs_time` is treated as
-#'   not-yet-known (right-censored).
+#' @param obs_time Real-time cut-off, or `NULL` for a retrospective fit in
+#'   which every recorded death counts and survivors are treated as fully
+#'   resolved. A single `Date` (or coercible) is shared by every case; a vector
+#'   with one entry per row of `linelist` gives each case its own cut-off; or a
+#'   string naming a `linelist` column holding those per-case cut-offs. In real
+#'   time, a case with a recovery on or before its own `obs_time` is resolved;
+#'   one still alive and unresolved is right-censored; and a death dated after
+#'   its own `obs_time` is treated as not-yet-known (right-censored).
 #' @param covariates Character vector of `linelist` column names to carry
 #'   through to the per-case model rows, so they can be used in a `prob ~ ...`
 #'   formula. The onset date is always carried as `onset`; for a time-varying
@@ -48,10 +55,10 @@
 #' @return A `cfrnow_data` list with the aggregated model inputs (`n_death`,
 #'   `death_delay`, `death_width`, `n_recovery`, `recovery_delay`,
 #'   `recovery_width`, `n_cens`, `censor_time`, `censor_width`, `n_resolved`,
-#'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`) and a `cases`
-#'   data frame with one row per kept case (`y`, `outcome`, `pwindow`,
-#'   `swindow`, `onset` and any requested `covariates`), which
-#'   [as_epidist_cure_model()] turns into the model frame.
+#'   `n_cases`, `n_deaths`, `n_recoveries`, `t0`, `obs_time`, one per kept case)
+#'   and a `cases` data frame with one row per kept case (`y`, `outcome`,
+#'   `pwindow`, `swindow`, `onset`, `obs_time` and any requested
+#'   `covariates`), which [as_epidist_cure_model()] turns into the model frame.
 #' @examples
 #' ll <- simulate_linelist(n = 50, delay = LogNormal(2.4, 0.5))
 #' prepare_cfr_data(ll, obs_time = as.Date("2026-02-01"))
@@ -78,22 +85,45 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   no_recovery <- as.Date(rep(NA, nrow(linelist)))
   recovery <- optional_date_col("recovery_date", no_recovery)
 
-  # NULL means a retrospective fit. Store the cut-off as a typed Date so
-  # downstream code (and the fit) always sees a Date; reject a stray NA so it is
-  # not mistaken for a real cut-off.
+  # NULL means a retrospective fit. Store the cut-off as a typed Date, one per
+  # row of `linelist`, so downstream code (and the fit) always sees a Date and
+  # every case can be judged against its own cut-off; reject a stray NA so it
+  # is not mistaken for a real cut-off. A single string names a `linelist`
+  # column of per-case cut-offs; otherwise `obs_time` is a Date (or coercible)
+  # shared by every case, or already one entry per case.
   retrospective <- is.null(obs_time)
-  obs_time <- if (retrospective) as.Date(NA) else as.Date(obs_time)
-  if (!retrospective && is.na(obs_time)) {
-    stop("`obs_time` must be a valid date, or NULL for a retrospective fit.",
-      call. = FALSE
-    )
+  if (retrospective) {
+    obs_time <- rep(as.Date(NA), nrow(linelist))
+  } else {
+    if (is.character(obs_time) && length(obs_time) == 1 &&
+          obs_time %in% names(linelist)) {
+      obs_time <- linelist[[obs_time]]
+    }
+    obs_time <- as.Date(obs_time)
+    if (length(obs_time) == 1) {
+      obs_time <- rep(obs_time, nrow(linelist))
+    } else if (length(obs_time) != nrow(linelist)) {
+      stop(
+        "`obs_time` must have length 1 or one entry per row of `linelist`.",
+        call. = FALSE
+      )
+    }
+    if (anyNA(obs_time)) {
+      stop("`obs_time` must be a valid date, or NULL for a retrospective fit.",
+        call. = FALSE
+      )
+    }
   }
   if (is.null(t0)) t0 <- min(onset, na.rm = TRUE) - max_delay
   t0 <- as.Date(t0)
 
   onset_lo_day <- as.numeric(onset_lo - t0)
   width <- as.numeric(onset_up - onset_lo) + 1 # onset-window width, days
-  obs_offset <- if (retrospective) Inf else as.numeric(obs_time - t0)
+  obs_offset <- if (retrospective) {
+    rep(Inf, nrow(linelist))
+  } else {
+    as.numeric(obs_time - t0)
+  }
 
   death_day <- as.numeric(death - t0) # NA for non-fatal
   is_death <- !is.na(death_day) & death_day <= obs_offset
@@ -148,7 +178,7 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
     # end of that day, `obs_offset + 1`; a survivor's follow-up runs to there.
     n_resolved <- 0L
     cens <- is_surv & !recovered
-    censor_time <- pmax(obs_offset + 1 - onset_lo_day[cens], 0)
+    censor_time <- pmax(obs_offset[cens] + 1 - onset_lo_day[cens], 0)
     censor_width <- width[cens]
   }
 
@@ -171,12 +201,14 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   } else {
     outcome_case[surv_untimed] <- .CURE_CENSORED
     y_case[surv_untimed] <-
-      as.integer(pmax(obs_offset + 1 - onset_lo_day[surv_untimed], 0))
+      as.integer(pmax(
+        obs_offset[surv_untimed] + 1 - onset_lo_day[surv_untimed], 0
+      ))
   }
   cases <- data.frame(
     y = y_case[keep], outcome = outcome_case[keep],
     pwindow = width[keep], swindow = rep_len(1L, sum(keep)),
-    onset = onset[keep]
+    onset = onset[keep], obs_time = obs_time[keep]
   )
   for (cov in covariates) cases[[cov]] <- linelist[[cov]][keep]
 
@@ -197,7 +229,7 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
       n_recoveries = length(recovery_delay),
       cases = cases,
       t0 = t0,
-      obs_time = obs_time
+      obs_time = obs_time[keep]
     ),
     class = "cfrnow_data"
   )
