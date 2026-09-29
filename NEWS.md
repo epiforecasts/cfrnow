@@ -8,9 +8,14 @@
   `fit_cfr()` also stops, with a message naming the cases, when a recorded delay
   or an unresolved case falls outside the bounds and would otherwise fail inside
   Stan.
-* `pp_check_cfr()` now draws replicate delays from a Weibull fit's own
-  distribution; it previously drew them from a gamma, so the checks for a
-  Weibull delay compared the fit against the wrong replicates.
+* The survival term for an unresolved case is computed on the log scale
+  (`primarycensored_lcdf()` and `log1m_exp()`) instead of `log1m()`. A case
+  followed up for much longer than the delay rounds the CDF to 1, which made
+  `log1m()` reject every draw with `log1m: x is 1, but must be less than or
+  equal to 1` and left the chains stuck at their starting values.
+* `pp_check_cfr()` now draws Weibull-family replicate delays from a Weibull
+  distribution instead of a gamma, so posterior-predictive checks for a
+  Weibull fit compare against the right spread of delays.
 * Added `posterior_prob_death()`, returning draws of the posterior probability
   of death for each case: `prob` updated by Bayes' rule on a censored case's
   follow-up, or the deterministic outcome for a resolved case. Averaging these
