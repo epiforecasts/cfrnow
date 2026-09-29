@@ -1,12 +1,12 @@
-# cfrnow (development version)
+# cfrnow 0.3.0
 
-* `prepare_cfr_data()` gives a case with no onset window of its own (`NA` in
-  `onset_lower`/`onset_upper`) a one-day window at its onset date, where it
-  was previously dropped as unusable. In real time, an onset window that
-  closes after the case's cut-off is cut back to the cut-off.
-* `prepare_cfr_data()` stops when a requested covariate or an `obs_time`
-  column is missing from the line list, and `fit_cfr()` warns when a
-  `recovery_delay` has no recorded recoveries to time.
+* The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
+  is a case fatality ratio only when the line list runs from onset to death; the
+  same model can fit a hospital fatality ratio or other outcome probability for a
+  differently defined line list. Use `prob ~ ...` in `formula` and
+  `prob_prior` in `fit_cfr()`; `summary()` now reports a `prob` (or
+  `prob[<group>]`) row. `cfr ~ ...` and `cfr_prior` are still accepted and
+  translated to `prob`, with a soft-deprecation warning.
 * `fit_cfr()` gains `loss_prior`, a prior on the probability that a case is
   lost to follow-up and its outcome never recorded. A fit that allows for loss
   estimates it alongside the outcome probability and the delays, and
@@ -20,6 +20,16 @@
 * `prepare_cfr_data()` gains `last_contact_date`, the column holding the date a
   case with no recorded outcome was last known unresolved. Such a case is
   censored there instead of at the cut-off, in retrospective fits too.
+* `prepare_cfr_data()`'s `obs_time` accepts a vector of per-case cut-offs, or
+  the name of a `linelist` column holding them, so a case reported by a site
+  that cut off earlier is judged against its own cut-off rather than the
+  latest one in the data. `pp_check_cfr()` replays each case's own cut-off
+  when building its follow-up horizon.
+* Added `posterior_prob_death()`, returning draws of the posterior probability
+  of death for each case: `prob` updated by Bayes' rule on a censored case's
+  follow-up, or the deterministic outcome for a resolved case. Averaging these
+  draws over cases by onset date gives a real-time CFR for each onset period
+  without a time trend in `prob`.
 * A delay's `max` is now honoured: `fit_cfr()` truncates the fitted delay at
   the bound (`LogNormal(..., max = 30)`), `simulate_linelist()` draws from the
   truncated delay, and `pp_check_cfr()` replicates from it. Previously the bound
@@ -28,11 +38,6 @@
   `fit_cfr()` also stops, with a message naming the cases, when a recorded delay
   or an unresolved case falls outside the bounds and would otherwise fail inside
   Stan.
-* `prepare_cfr_data()`'s `obs_time` accepts a vector of per-case cut-offs, or
-  the name of a `linelist` column holding them, so a case reported by a site
-  that cut off earlier is judged against its own cut-off rather than the
-  latest one in the data. `pp_check_cfr()` replays each case's own cut-off
-  when building its follow-up horizon.
 * The survival term for an unresolved case is computed on the log scale
   (`primarycensored_lcdf()` and `log1m_exp()`) instead of `log1m()`. A case
   followed up for much longer than the delay rounds the CDF to 1, which made
@@ -41,18 +46,13 @@
 * `pp_check_cfr()` now draws Weibull-family replicate delays from a Weibull
   distribution instead of a gamma, so posterior-predictive checks for a
   Weibull fit compare against the right spread of delays.
-* Added `posterior_prob_death()`, returning draws of the posterior probability
-  of death for each case: `prob` updated by Bayes' rule on a censored case's
-  follow-up, or the deterministic outcome for a resolved case. Averaging these
-  draws over cases by onset date gives a real-time CFR for each onset period
-  without a time trend in `prob`.
-* The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
-  is a case fatality ratio only when the line list runs from onset to death; the
-  same model can fit a hospital fatality ratio or other outcome probability for a
-  differently defined line list. Use `prob ~ ...` in `formula` and
-  `prob_prior` in `fit_cfr()`; `summary()` now reports a `prob` (or
-  `prob[<group>]`) row. `cfr ~ ...` and `cfr_prior` are still accepted and
-  translated to `prob`, with a soft-deprecation warning.
+* `prepare_cfr_data()` gives a case with no onset window of its own (`NA` in
+  `onset_lower`/`onset_upper`) a one-day window at its onset date, where it
+  was previously dropped as unusable. In real time, an onset window that
+  closes after the case's cut-off is cut back to the cut-off.
+* `prepare_cfr_data()` stops when a requested covariate or an `obs_time`
+  column is missing from the line list, and `fit_cfr()` warns when a
+  `recovery_delay` has no recorded recoveries to time.
 
 # cfrnow 0.2.1
 
