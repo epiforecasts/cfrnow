@@ -5,6 +5,11 @@
   that cut off earlier is judged against its own cut-off rather than the
   latest one in the data. `pp_check_cfr()` replays each case's own cut-off
   when building its follow-up horizon.
+* The survival term for an unresolved case is computed on the log scale
+  (`primarycensored_lcdf()` and `log1m_exp()`) instead of `log1m()`. A case
+  followed up for much longer than the delay rounds the CDF to 1, which made
+  `log1m()` reject every draw with `log1m: x is 1, but must be less than or
+  equal to 1` and left the chains stuck at their starting values.
 * `pp_check_cfr()` now draws Weibull-family replicate delays from a Weibull
   distribution instead of a gamma, so posterior-predictive checks for a
   Weibull fit compare against the right spread of delays.
