@@ -133,7 +133,7 @@ test_that(".assert_loss_identified needs unresolved cases and timed recoveries",
   expect_true(.assert_loss_identified(censored, TRUE, one_sided))
 
   expect_error(
-    .assert_loss_identified(censored, FALSE, shared), "needs a `recovery_delay`"
+    .assert_loss_identified(censored, FALSE, shared), "timed by a `recovery_delay`"
   )
   # both halves estimated: the data cannot say which outcome goes missing
   expect_warning(

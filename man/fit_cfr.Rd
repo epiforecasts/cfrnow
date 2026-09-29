@@ -37,8 +37,8 @@ follow-up, so its outcome never reaches the line list. A
 \code{\link[distspec:Beta]{distspec::Beta()}} gives one probability whatever the outcome; a list with
 \code{death} and \code{recovery} entries, each a \code{Beta()} or a fixed number, gives
 them their own (e.g. \code{list(death = 0, recovery = Beta(1, 1))} where every
-death is recorded). Needs a \code{recovery_delay}. \code{NULL} (the default)
-assumes every outcome is eventually recorded.}
+death is recorded). Needs recorded recoveries and a \code{recovery_delay}.
+\code{NULL} (the default) assumes every outcome is eventually recorded.}
 
 \item{formula}{A \code{brms} formula for the delay location \code{mu} and, optionally,
 \code{prob} (\code{prob ~ ...}). Defaults to \code{mu ~ 1}. \code{prob_prior} normally lands on
@@ -86,9 +86,10 @@ and it assumes a lost case's CFR matches everyone else's. Fixing one half
 (\code{list(death = 0, recovery = Beta(1, 1))}, where a death is always written
 down and a discharge may not be) is identified too. Estimating both leaves
 one parameter unidentified: the priors decide the split and \code{fit_cfr()}
-warns, so treat that fit as a sensitivity analysis. A \code{loss_prior} needs a
-\code{recovery_delay}, because only timed recoveries separate loss from the
-outcome probability; without one, \code{fit_cfr()} stops.
+warns, so treat that fit as a sensitivity analysis. A \code{loss_prior} needs
+recorded recoveries and a \code{recovery_delay} to time them, because only timed
+recoveries separate loss from the outcome probability; without them,
+\code{fit_cfr()} stops.
 
 Where a case has a date it was last known unresolved, censoring it there
 through \code{\link[=prepare_cfr_data]{prepare_cfr_data()}}'s \code{last_contact_date} uses that timing instead

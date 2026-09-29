@@ -27,9 +27,10 @@
 #' (`list(death = 0, recovery = Beta(1, 1))`, where a death is always written
 #' down and a discharge may not be) is identified too. Estimating both leaves
 #' one parameter unidentified: the priors decide the split and `fit_cfr()`
-#' warns, so treat that fit as a sensitivity analysis. A `loss_prior` needs a
-#' `recovery_delay`, because only timed recoveries separate loss from the
-#' outcome probability; without one, `fit_cfr()` stops.
+#' warns, so treat that fit as a sensitivity analysis. A `loss_prior` needs
+#' recorded recoveries and a `recovery_delay` to time them, because only timed
+#' recoveries separate loss from the outcome probability; without them,
+#' `fit_cfr()` stops.
 #'
 #' Where a case has a date it was last known unresolved, censoring it there
 #' through [prepare_cfr_data()]'s `last_contact_date` uses that timing instead
@@ -72,8 +73,8 @@
 #'   [distspec::Beta()] gives one probability whatever the outcome; a list with
 #'   `death` and `recovery` entries, each a `Beta()` or a fixed number, gives
 #'   them their own (e.g. `list(death = 0, recovery = Beta(1, 1))` where every
-#'   death is recorded). Needs a `recovery_delay`. `NULL` (the default)
-#'   assumes every outcome is eventually recorded.
+#'   death is recorded). Needs recorded recoveries and a `recovery_delay`.
+#'   `NULL` (the default) assumes every outcome is eventually recorded.
 #' @param formula A `brms` formula for the delay location `mu` and, optionally,
 #'   `prob` (`prob ~ ...`). Defaults to `mu ~ 1`. `prob_prior` normally lands on
 #'   the `prob` intercept; when the `prob` formula drops the intercept (e.g.
@@ -318,9 +319,10 @@ fit_cfr <- function(data,
     )
   }
   if (!use_recovery) {
-    stop("`loss_prior` needs a `recovery_delay`: without timed recoveries a ",
-      "lost case cannot be told apart from a survivor who has not yet ",
-      "resolved, so the loss estimate is pulled towards 0.",
+    stop("`loss_prior` needs recorded recoveries timed by a ",
+      "`recovery_delay`: without them a lost case cannot be told apart from ",
+      "a survivor who has not yet resolved, so the loss estimate is pulled ",
+      "towards 0.",
       call. = FALSE
     )
   }

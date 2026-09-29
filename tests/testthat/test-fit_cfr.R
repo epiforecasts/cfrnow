@@ -341,11 +341,21 @@ test_that("a loss_prior needs unresolved cases and a recovery delay", {
   # in real time, but with recoveries left untimed
   d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
   expect_error(
-    fit_cfr(d, loss_prior = Beta(1, 1)), "needs a `recovery_delay`"
+    fit_cfr(d, loss_prior = Beta(1, 1)), "timed by a `recovery_delay`"
   )
   expect_error(
     fit_cfr(d, loss_prior = list(death = Beta(1, 1), recovery = 0)),
-    "needs a `recovery_delay`"
+    "timed by a `recovery_delay`"
+  )
+
+  # a recovery delay with no recoveries in the data to time
+  ll$recovery_date <- NULL
+  d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+  expect_error(
+    fit_cfr(d,
+      recovery_delay = LogNormal(2.6, 0.4), loss_prior = Beta(1, 1)
+    ),
+    "needs recorded recoveries"
   )
 })
 
