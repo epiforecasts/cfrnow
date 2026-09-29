@@ -85,6 +85,12 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
       call. = FALSE
     )
   }
+  missing_cov <- setdiff(covariates, names(linelist))
+  if (length(missing_cov) > 0) {
+    stop("`covariates` not found in `linelist`: ", toString(missing_cov), ".",
+      call. = FALSE
+    )
+  }
 
   optional_date_col <- function(col, default) {
     if (col %in% names(linelist)) as.Date(linelist[[col]]) else default
@@ -283,7 +289,12 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
         obs_time %in% names(linelist)) {
     obs_time <- linelist[[obs_time]]
   }
-  obs_time <- as.Date(obs_time)
+  obs_time <- tryCatch(as.Date(obs_time), error = function(e) {
+    stop("`obs_time` (", toString(obs_time), ") is neither a date nor the ",
+      "name of a `linelist` column.",
+      call. = FALSE
+    )
+  })
   if (!length(obs_time) %in% c(1, n)) {
     stop("`obs_time` must be one date, one per row of `linelist`, or the name ",
       "of a `linelist` column holding them.",

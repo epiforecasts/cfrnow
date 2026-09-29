@@ -388,3 +388,19 @@ test_that("an obs_time vector of the wrong length is rejected", {
     "one date, one per row"
   )
 })
+
+test_that("a missing covariate or obs_time column is named in the error", {
+  ll <- data.frame(
+    onset_date = as.Date("2026-01-01") + 0:1,
+    death_date = as.Date(c(NA, NA)),
+    cutoff = as.Date("2026-01-10")
+  )
+  expect_error(
+    prepare_cfr_data(ll, obs_time = "cutoff", covariates = "age_group"),
+    "not found in `linelist`: age_group"
+  )
+  expect_error(
+    prepare_cfr_data(ll, obs_time = "cutof"),
+    "neither a date nor the name of a `linelist` column"
+  )
+})
