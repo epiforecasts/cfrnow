@@ -40,13 +40,22 @@
   s
 }
 
-# Bayes update of `prob` on a case's follow-up: p * S_D(y) / (p * S_D(y) +
-# (1 - p) * S_R(y)) for a still-unresolved (censored) case, else the
+# Bayes update of `prob` on a case's follow-up: p * U_D(y) / (p * U_D(y) +
+# (1 - p) * U_R(y)) for a still-unresolved (censored) case, else the
 # deterministic outcome (1 for a death, 0 for a recovery or resolved
-# non-death). `prob`, `s_d` and `s_r` are ndraws x ncases matrices (`s_r` may
-# be the scalar 1 when there is no recovery delay); `outcome` has length ncases.
-.pi_death <- function(prob, s_d, s_r, outcome) {
-  pi_death <- prob * s_d / (prob * s_d + (1 - prob) * s_r)
+# non-death). U is the probability of still being unresolved on that outcome's
+# path: the survivor function S, or l + (1 - l) S when a case can be lost with
+# probability l, as in the fit's likelihood. `prob`, `s_d`, `s_r`, `loss_d` and
+# `loss_r` are ndraws x ncases matrices (`s_r` may be the scalar 1 when there is
+# no recovery delay, and either loss NULL when that outcome is never lost);
+# `outcome` has length ncases.
+.pi_death <- function(prob, s_d, s_r, outcome, loss_d = NULL, loss_r = NULL) {
+  unresolved <- function(s, loss) {
+    if (is.null(loss)) s else loss + (1 - loss) * s
+  }
+  u_d <- unresolved(s_d, loss_d)
+  u_r <- unresolved(s_r, loss_r)
+  pi_death <- prob * u_d / (prob * u_d + (1 - prob) * u_r)
   pi_death[, outcome == .CURE_DEATH] <- 1
   pi_death[, outcome == .CURE_RECOVERY | outcome == .CURE_RESOLVED] <- 0
   pi_death
@@ -62,7 +71,9 @@
 #' \deqn{\pi = \frac{p \, S_D(y)}{p \, S_D(y) + (1 - p) \, S_R(y)}}
 #' where `S_D` and `S_R` are the survivor functions of the death and recovery
 #' delays, censored for the day of onset, and `S_R = 1` when the fit has no
-#' `recovery_delay`. A case already resolved by the cut-off has a
+#' `recovery_delay`. A fit with a `loss_prior` replaces each survivor function
+#' `S` with `l + (1 - l) S`, where `l` is the probability that a case with that
+#' outcome is lost to follow-up. A case already resolved by the cut-off has a
 #' deterministic `pi`: 1 for an observed death, 0 for a recovery or a resolved
 #' non-death.
 #'
@@ -112,13 +123,18 @@ posterior_prob_death <- function(object) {
   s_d <- .delay_survivor(fam, d$y, d$pwindow, lp("mu"), lp(scale_dpar))
 
   s_r <- 1
+  loss_r <- NULL
   if (isTRUE(object$cfrnow$use_recovery)) {
     rfam <- object$cfrnow$recovery_family
     rscale_dpar <- if (rfam == "lognormal") "rsigma" else "rshape"
     s_r <- .delay_survivor(rfam, d$y, d$pwindow, lp("rmu"), lp(rscale_dpar))
+    loss_r <- .ppc_loss(object, "recovery", lp, dim(prob))
   }
 
-  pi_death <- .pi_death(prob, s_d, s_r, d$outcome)
+  pi_death <- .pi_death(prob, s_d, s_r, d$outcome,
+    loss_d = .ppc_loss(object, "death", lp, dim(prob)),
+    loss_r = loss_r
+  )
   colnames(pi_death) <- paste0("pi[", seq_len(ncol(pi_death)), "]")
 
   # Draws come out in as_draws_df() row order (see .cfr_quantities()), so the

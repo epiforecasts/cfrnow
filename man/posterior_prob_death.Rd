@@ -22,7 +22,9 @@ the cure likelihood):
 \deqn{\pi = \frac{p \, S_D(y)}{p \, S_D(y) + (1 - p) \, S_R(y)}}
 where \code{S_D} and \code{S_R} are the survivor functions of the death and recovery
 delays, censored for the day of onset, and \code{S_R = 1} when the fit has no
-\code{recovery_delay}. A case already resolved by the cut-off has a
+\code{recovery_delay}. A fit with a \code{loss_prior} replaces each survivor function
+\code{S} with \verb{l + (1 - l) S}, where \code{l} is the probability that a case with that
+outcome is lost to follow-up. A case already resolved by the cut-off has a
 deterministic \code{pi}: 1 for an observed death, 0 for a recovery or a resolved
 non-death.
 }
