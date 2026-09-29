@@ -9,8 +9,11 @@
 #' being censored, so recording recoveries tightens the estimate.
 #'
 #' Onset is taken over the day-window `[onset_lower, onset_upper]` when those
-#' columns are present (defaulting to a one-day window at `onset_date`). Deaths
-#' and recoveries are recorded to the day.
+#' columns are present, defaulting to a one-day window at `onset_date` for a
+#' case whose window is missing (`NA`), or for every case when the columns are
+#' absent. In real time, a window that closes after the case's cut-off is cut
+#' back to the cut-off, since the case was already known then. Deaths and
+#' recoveries are recorded to the day.
 #'
 #' Records that cannot be used are dropped with a warning: a missing onset, an
 #' inverted onset window (`onset_upper < onset_lower`), a death with an
@@ -82,13 +85,23 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
       call. = FALSE
     )
   }
+  missing_cov <- setdiff(covariates, names(linelist))
+  if (length(missing_cov) > 0) {
+    stop("`covariates` not found in `linelist`: ", toString(missing_cov), ".",
+      call. = FALSE
+    )
+  }
 
   optional_date_col <- function(col, default) {
     if (col %in% names(linelist)) as.Date(linelist[[col]]) else default
   }
   onset <- as.Date(linelist$onset_date)
+  # a window given only for the cases whose onset is uncertain: the others
+  # keep the one-day window at their onset date
   onset_lo <- optional_date_col("onset_lower", onset)
   onset_up <- optional_date_col("onset_upper", onset)
+  onset_lo[is.na(onset_lo)] <- onset[is.na(onset_lo)]
+  onset_up[is.na(onset_up)] <- onset[is.na(onset_up)]
   death <- as.Date(linelist$death_date)
   no_recovery <- as.Date(rep(NA, nrow(linelist)))
   recovery <- optional_date_col("recovery_date", no_recovery)
@@ -113,6 +126,13 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   if (is.null(t0)) t0 <- min(onset, na.rm = TRUE) - max_delay
   t0 <- as.Date(t0)
 
+  # In real time a case is known by its cut-off, so its onset came no later: a
+  # window reaching past the cut-off is cut back to it. One that opens after
+  # the cut-off is left as it is, and the case is excluded below.
+  if (!retrospective) {
+    known <- !is.na(onset_lo) & !is.na(onset_up) & onset_lo <= obs_time
+    onset_up[known] <- pmin(onset_up[known], obs_time[known])
+  }
   onset_lo_day <- as.numeric(onset_lo - t0)
   width <- as.numeric(onset_up - onset_lo) + 1 # onset-window width, days
   # one offset per case: each case is observed up to its own cut-off
@@ -269,7 +289,12 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
         obs_time %in% names(linelist)) {
     obs_time <- linelist[[obs_time]]
   }
-  obs_time <- as.Date(obs_time)
+  obs_time <- tryCatch(as.Date(obs_time), error = function(e) {
+    stop("`obs_time` (", toString(obs_time), ") is neither a date nor the ",
+      "name of a `linelist` column.",
+      call. = FALSE
+    )
+  })
   if (!length(obs_time) %in% c(1, n)) {
     stop("`obs_time` must be one date, one per row of `linelist`, or the name ",
       "of a `linelist` column holding them.",

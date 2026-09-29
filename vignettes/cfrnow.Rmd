@@ -173,9 +173,10 @@ ggplot(tv, aes(week)) +
 
 ## Delay family and fixing the delay
 
-The delay is `LogNormal()` or `Gamma()`; they differ in tail weight, which sets
-how quickly a recent case counts as "probably cured". The family is not
-identifiable from sparse data, so check sensitivity by refitting the other. Give
+The delay is `LogNormal()`, `Gamma()` or `Weibull()`; they differ in tail
+weight, which sets how quickly a recent case counts as "probably cured". The
+family is not identifiable from sparse data, so check sensitivity by refitting
+with another. Give
 a native parameter a fixed number instead of a `Normal()` prior to hold it fixed;
 fixing the whole delay gives the Ghani/Nishiura estimator.
 
@@ -192,7 +193,12 @@ If the line list has a `recovery_date` column and you pass a `recovery_delay`,
 may use a different family from the death delay.
 
 ```{r recovery-fit, eval = FALSE}
-fit_cfr(d,
+llr <- simulate_linelist(
+  n = 500, cfr = 0.55, onset_days = 45,
+  delay = LogNormal(mean = 12.75, sd = 7), recovery = LogNormal(2.9, 0.5)
+)
+dr <- prepare_cfr_data(llr, obs_time = as.Date("2026-02-20"))
+fit_cfr(dr,
   delay = onset_to_death,
   recovery_delay = LogNormal(meanlog = Normal(2.9, 0.3), sdlog = Normal(0.5, 0.2))
 )
@@ -202,7 +208,8 @@ This sharpens `prob` when discharge recording is reliable, but an actually-recov
 case whose recovery is *unrecorded* stays censored and is pushed toward the fatal
 branch over time, biasing `prob` up. So without a `recovery_delay`, recoveries are
 treated as untimed resolutions (the death-only default), which is safer where
-discharge data are patchy.
+discharge data are patchy. Alternatively, a `loss_prior` lets the two-outcome
+fit allow for outcomes that are never recorded (see `?fit_cfr`).
 
 ## Caveats
 

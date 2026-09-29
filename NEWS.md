@@ -1,5 +1,12 @@
 # cfrnow (development version)
 
+* `prepare_cfr_data()` gives a case with no onset window of its own (`NA` in
+  `onset_lower`/`onset_upper`) a one-day window at its onset date, where it
+  was previously dropped as unusable. In real time, an onset window that
+  closes after the case's cut-off is cut back to the cut-off.
+* `prepare_cfr_data()` stops when a requested covariate or an `obs_time`
+  column is missing from the line list, and `fit_cfr()` warns when a
+  `recovery_delay` has no recorded recoveries to time.
 * `fit_cfr()` gains `loss_prior`, a prior on the probability that a case is
   lost to follow-up and its outcome never recorded. A fit that allows for loss
   estimates it alongside the outcome probability and the delays, and

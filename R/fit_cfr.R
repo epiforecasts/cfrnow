@@ -147,6 +147,11 @@ fit_cfr <- function(data,
       attr(cure, "recovery_family") <- brms:::validate_family(rfam) # nolint
       attr(cure, "recovery_max") <- rd$max
     }
+  } else if (!is.null(recovery_delay)) {
+    warning("`recovery_delay` is ignored: the data has no recorded ",
+      "recoveries to time, so this is a death-only fit.",
+      call. = FALSE
+    )
   }
   use_recovery <- isTRUE(attr(cure, "use_recovery"))
   loss <- .loss_spec(loss_prior)

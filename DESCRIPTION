@@ -26,7 +26,7 @@ Imports:
     epidist,
     lifecycle,
     posterior,
-    primarycensored,
+    primarycensored (>= 1.5.2),
     rlang,
     stats
 Suggests:

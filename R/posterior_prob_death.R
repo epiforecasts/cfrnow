@@ -21,20 +21,31 @@
 # with primarycensored's R censored-CDF rather than its Stan one. `loc` and
 # `scale` are ndraws x ncases matrices of natural-scale delay parameters (as
 # returned by posterior_linpred(transform = TRUE)); `y` and `pwindow` are
-# length-ncases vectors, one value per case. `q` and `pwindow` have to match
-# the parameter vectors' length for pprimarycensored() to vectorise correctly.
-.delay_survivor <- function(family, y, pwindow, loc, scale) {
+# length-ncases vectors, one value per case. `delay_max` truncates the delay
+# where the likelihood does (Inf when unbounded): the censored CDF is
+# normalised by its value at the bound, as pprimarycensored() does for a
+# finite `D`, which it will not do for vectors of parameters. `q` and
+# `pwindow` have to match the parameter vectors' length for
+# pprimarycensored() to vectorise correctly.
+.delay_survivor <- function(family, y, pwindow, loc, scale, delay_max = Inf) {
   nd <- nrow(loc)
   s <- matrix(NA_real_, nd, ncol(loc))
   for (j in seq_len(ncol(loc))) {
     np <- .delay_native_params(family, loc[, j], scale[, j])
-    fbar <- do.call(primarycensored::pprimarycensored, c(
-      list(
-        q = rep(y[j], nd), pdist = np$pdist, pwindow = rep(pwindow[j], nd),
-        L = -Inf, D = Inf, check = FALSE
-      ),
-      np$args
-    ))
+    cdf <- function(q) {
+      do.call(primarycensored::pprimarycensored, c(
+        list(
+          q = rep(q, nd), pdist = np$pdist, pwindow = rep(pwindow[j], nd),
+          L = -Inf, D = Inf, check = FALSE
+        ),
+        np$args
+      ))
+    }
+    fbar <- if (is.finite(delay_max)) {
+      if (y[j] >= delay_max) 1 else cdf(y[j]) / cdf(delay_max)
+    } else {
+      cdf(y[j])
+    }
     s[, j] <- 1 - fbar
   }
   s
@@ -70,12 +81,12 @@
 #' the cure likelihood):
 #' \deqn{\pi = \frac{p \, S_D(y)}{p \, S_D(y) + (1 - p) \, S_R(y)}}
 #' where `S_D` and `S_R` are the survivor functions of the death and recovery
-#' delays, censored for the day of onset, and `S_R = 1` when the fit has no
-#' `recovery_delay`. A fit with a `loss_prior` replaces each survivor function
-#' `S` with `l + (1 - l) S`, where `l` is the probability that a case with that
-#' outcome is lost to follow-up. A case already resolved by the cut-off has a
-#' deterministic `pi`: 1 for an observed death, 0 for a recovery or a resolved
-#' non-death.
+#' delays, censored for the day of onset and truncated at each delay's `max`,
+#' and `S_R = 1` when the fit has no `recovery_delay`. A fit with a
+#' `loss_prior` replaces each survivor function `S` with `l + (1 - l) S`, where
+#' `l` is the probability that a case with that outcome is lost to follow-up.
+#' A case already resolved by the cut-off has a deterministic `pi`: 1 for an
+#' observed death, 0 for a recovery or a resolved non-death.
 #'
 #' A case with little follow-up (small `y`) has `S_D(y)` close to 1, so its
 #' `pi` sits close to its (covariate-specific) `prob`; only once it has been
@@ -120,14 +131,18 @@ posterior_prob_death <- function(object) {
   }
 
   prob <- lp("prob")
-  s_d <- .delay_survivor(fam, d$y, d$pwindow, lp("mu"), lp(scale_dpar))
+  s_d <- .delay_survivor(fam, d$y, d$pwindow, lp("mu"), lp(scale_dpar),
+    delay_max = object$cfrnow$delay_max %||% Inf
+  )
 
   s_r <- 1
   loss_r <- NULL
   if (isTRUE(object$cfrnow$use_recovery)) {
     rfam <- object$cfrnow$recovery_family
     rscale_dpar <- if (rfam == "lognormal") "rsigma" else "rshape"
-    s_r <- .delay_survivor(rfam, d$y, d$pwindow, lp("rmu"), lp(rscale_dpar))
+    s_r <- .delay_survivor(rfam, d$y, d$pwindow, lp("rmu"), lp(rscale_dpar),
+      delay_max = object$cfrnow$recovery_max %||% Inf
+    )
     loss_r <- .ppc_loss(object, "recovery", lp, dim(prob))
   }
 
