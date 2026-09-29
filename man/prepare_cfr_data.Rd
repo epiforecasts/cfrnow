@@ -9,7 +9,8 @@ prepare_cfr_data(
   obs_time = NULL,
   covariates = character(),
   t0 = NULL,
-  max_delay = 60
+  max_delay = 60,
+  last_contact_date = NULL
 )
 }
 \arguments{
@@ -45,6 +46,14 @@ records; it does \strong{not} bound or truncate the onset-to-death delay the
 model fits, so set it comfortably above the longest credible delay to
 avoid discarding genuine long-delay deaths (which would bias the delay
 short). It also sets the default origin, \code{t0 = min(onset) - max_delay}.}
+
+\item{last_contact_date}{Optional column name in \code{linelist} holding the last
+date a case was known to be alive and unresolved (a transfer, a discharge
+against advice, the last ward note). A case with no recorded outcome is
+censored there instead of at \code{obs_time}, so the follow-up the model sees
+stops where the data do. \code{NA} means followed to the cut-off, and the column
+is ignored for a case whose death or recovery was recorded, which was
+followed until that happened.}
 }
 \value{
 A \code{cfrnow_data} list with the aggregated model inputs (\code{n_death},
@@ -52,8 +61,9 @@ A \code{cfrnow_data} list with the aggregated model inputs (\code{n_death},
 \code{recovery_width}, \code{n_cens}, \code{censor_time}, \code{censor_width}, \code{n_resolved},
 \code{n_cases}, \code{n_deaths}, \code{n_recoveries}, \code{t0}, \code{obs_time}, one per kept case)
 and a \code{cases} data frame with one row per kept case (\code{y}, \code{outcome},
-\code{pwindow}, \code{swindow}, \code{onset}, \code{obs_time} and any requested
-\code{covariates}), which \code{\link[=as_epidist_cure_model]{as_epidist_cure_model()}} turns into the model frame.
+\code{pwindow}, \code{swindow}, \code{onset}, \code{obs_time}, \code{follow_up} (days watched,
+\code{Inf} in a retrospective fit) and any requested \code{covariates}), which
+\code{\link[=as_epidist_cure_model]{as_epidist_cure_model()}} turns into the model frame.
 }
 \description{
 Classifies each case at an observation cut-off into an observed death (with

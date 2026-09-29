@@ -81,6 +81,27 @@ test_that(".pi_death reduces to S_R = 1 when there is no recovery delay", {
   expect_equal(pi[, 1], rep(0.4 * 0.9 / (0.4 * 0.9 + 0.6), 2))
 })
 
+test_that(".pi_death allows a censored case to have been lost", {
+  prob <- matrix(0.4, 2, 1)
+  loss_d <- matrix(0.1, 2, 1)
+  loss_r <- matrix(0.3, 2, 1)
+  pi <- .pi_death(
+    prob, matrix(0.8, 2, 1), matrix(0.6, 2, 1), .CURE_CENSORED,
+    loss_d = loss_d, loss_r = loss_r
+  )
+  u_d <- 0.1 + 0.9 * 0.8
+  u_r <- 0.3 + 0.7 * 0.6
+  expect_equal(pi[, 1], rep(0.4 * u_d / (0.4 * u_d + 0.6 * u_r), 2))
+
+  # far past both delays, only loss explains the case: pi falls back to the
+  # prior odds weighted by each outcome's loss, where it was 0/0 without loss
+  far <- .pi_death(
+    prob, matrix(0, 2, 1), matrix(0, 2, 1), .CURE_CENSORED,
+    loss_d = loss_d, loss_r = loss_r
+  )
+  expect_equal(far[, 1], rep(0.4 * 0.1 / (0.4 * 0.1 + 0.6 * 0.3), 2))
+})
+
 test_that("posterior_prob_death gives 0/1 draws matching outcome on a fully resolved fit", {
   testthat::skip_if_not_installed("cmdstanr")
   testthat::skip_if(

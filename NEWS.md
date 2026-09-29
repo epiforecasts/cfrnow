@@ -1,5 +1,18 @@
 # cfrnow (development version)
 
+* `fit_cfr()` gains `loss_prior`, a prior on the probability that a case is
+  lost to follow-up and its outcome never recorded. A fit that allows for loss
+  estimates it alongside the outcome probability and the delays, and
+  `summary()` reports it. Without it, cases that stay unresolved far longer
+  than the delays allow either stretch the delay's tail or stop the sampler
+  from starting. A single `Beta()` gives one probability whatever the outcome;
+  `list(death = 0, recovery = Beta(1, 1))` gives each outcome its own, fixed or
+  estimated. Estimating both is a sensitivity analysis, since the data cannot
+  tell them apart, and `fit_cfr()` warns. A `loss_prior` needs recorded
+  recoveries and a `recovery_delay` to time them.
+* `prepare_cfr_data()` gains `last_contact_date`, the column holding the date a
+  case with no recorded outcome was last known unresolved. Such a case is
+  censored there instead of at the cut-off, in retrospective fits too.
 * A delay's `max` is now honoured: `fit_cfr()` truncates the fitted delay at
   the bound (`LogNormal(..., max = 30)`), `simulate_linelist()` draws from the
   truncated delay, and `pp_check_cfr()` replicates from it. Previously the bound

@@ -175,6 +175,127 @@ test_that("a bounded delay simulates the recorded delays the model fits", {
   expect_lt(sum(abs(empirical - model)) / 2, 0.004)
 })
 
+test_that("last_contact_date censors a case where its follow-up stops", {
+  ll <- data.frame(
+    onset_date = as.Date("2026-01-01") + c(0, 0, 0, 0),
+    death_date = as.Date(c("2026-01-10", NA, NA, NA)),
+    recovery_date = as.Date(c(NA, "2026-01-08", NA, NA)),
+    seen = as.Date(c(NA, NA, "2026-01-05", NA))
+  )
+  d <- prepare_cfr_data(ll,
+    obs_time = as.Date("2026-01-31"), last_contact_date = "seen"
+  )
+  # case 3 stops being observed on the 5th, case 4 runs to the cut-off
+  expect_equal(d$cases$outcome, c(1, 2, 0, 0))
+  expect_identical(d$cases$y[3:4], c(5L, 31L))
+
+  # a retrospective fit resolves the untimed non-deaths but still censors a
+  # case that stopped being followed
+  r <- prepare_cfr_data(ll, obs_time = NULL, last_contact_date = "seen")
+  expect_equal(r$cases$outcome, c(1, 2, 0, 3))
+  expect_identical(r$cases$y[3], 5L)
+  expect_identical(r$n_resolved, 1L)
+
+  expect_error(
+    prepare_cfr_data(ll, obs_time = as.Date("2026-01-31"),
+      last_contact_date = "nope"
+    ),
+    "not a column"
+  )
+})
+
+test_that("a recorded outcome is followed to its own date, not the last contact", {
+  ll <- data.frame(
+    onset_date = rep(as.Date("2026-01-01"), 3),
+    death_date = as.Date(c("2026-01-10", NA, NA)),
+    recovery_date = as.Date(c(NA, "2026-01-08", NA)),
+    # a "last seen" column carrying each case's own last record, as a real
+    # line list usually does
+    seen = as.Date(c("2026-01-10", "2026-01-08", "2026-01-05"))
+  )
+  d <- prepare_cfr_data(ll,
+    obs_time = as.Date("2026-01-31"), last_contact_date = "seen"
+  )
+  expect_equal(d$cases$outcome, c(1, 2, 0))
+  # the death and the recovery keep the full horizon, so a replicate can draw
+  # a longer delay than the one observed; only the unresolved case is cut short
+  expect_identical(d$cases$follow_up, c(31, 31, 5))
+  expect_identical(d$cases$y, c(9L, 7L, 5L))
+})
+
+test_that("obs_time can vary by case", {
+  ll <- data.frame(
+    onset_date = rep(as.Date("2026-01-01"), 4),
+    death_date = as.Date(c("2026-01-10", "2026-01-10", NA, NA)),
+    site = c("a", "b", "a", "b"),
+    cutoff = as.Date(c("2026-01-31", "2026-01-05", "2026-01-31", "2026-01-05"))
+  )
+  # site b's data only reaches the analyst on the 5th, so its death is not yet
+  # known and its survivor is censored earlier
+  d <- prepare_cfr_data(ll, obs_time = "cutoff")
+  expect_equal(d$cases$outcome, c(1, 0, 0, 0))
+  expect_identical(d$cases$y, c(9L, 5L, 31L, 5L))
+  expect_identical(d$cases$obs_time, ll$cutoff)
+
+  # the same dates passed as a vector, and a single date for everyone
+  expect_identical(
+    prepare_cfr_data(ll, obs_time = ll$cutoff)$cases, d$cases
+  )
+  one <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-31"))
+  expect_equal(one$cases$outcome, c(1, 1, 0, 0))
+
+  expect_error(
+    prepare_cfr_data(ll, obs_time = ll$cutoff[1:3]), "one date, one per row"
+  )
+  expect_error(
+    prepare_cfr_data(ll, obs_time = as.Date(NA)), "must be a valid date"
+  )
+})
+
+test_that("a case whose onset follows its own cut-off is excluded", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-01", "2026-01-20")),
+    death_date = as.Date(c(NA, NA)),
+    cutoff = as.Date(c("2026-01-31", "2026-01-10"))
+  )
+  expect_message(
+    d <- prepare_cfr_data(ll, obs_time = "cutoff"),
+    "1 case\\(s\\) with onset after the cut-off excluded"
+  )
+  expect_identical(nrow(d$cases), 1L)
+})
+
+test_that("the returned cut-off and follow-up line up with the kept cases", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-01", NA, "2026-01-02")),
+    death_date = as.Date(c(NA, NA, NA)),
+    cutoff = as.Date(c("2026-01-31", "2026-01-10", "2026-01-20"))
+  )
+  suppressWarnings(d <- prepare_cfr_data(ll, obs_time = "cutoff"))
+  # the middle row is unusable, so the cut-offs must skip it too
+  expect_identical(nrow(d$cases), 2L)
+  expect_identical(d$obs_time, as.Date(c("2026-01-31", "2026-01-20")))
+  expect_identical(d$obs_time, d$cases$obs_time)
+
+  # a single cut-off for the whole line list comes back once per kept case too
+  suppressWarnings(one <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-31")))
+  expect_identical(one$obs_time, rep(as.Date("2026-01-31"), 2))
+})
+
+test_that("follow-up is measured from the onset window, not the onset date", {
+  ll <- data.frame(
+    onset_date = as.Date(c("2026-01-01", NA)),
+    onset_lower = as.Date(c("2026-01-01", "2026-01-03")),
+    onset_upper = as.Date(c("2026-01-01", "2026-01-05")),
+    death_date = as.Date(c(NA, NA))
+  )
+  d <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-20"))
+  # a case kept on its window alone still has a follow-up the checks can use
+  expect_false(anyNA(d$cases$follow_up))
+  expect_identical(d$cases$follow_up, c(20, 18))
+  expect_identical(d$cases$follow_up, as.numeric(d$cases$y))
+})
+
 test_that("a per-case obs_time vector aligns censoring with each case's own cut-off", {
   ll <- data.frame(
     onset_date = as.Date("2026-01-01") + c(0, 1, 5),
@@ -234,6 +355,6 @@ test_that("an obs_time vector of the wrong length is rejected", {
   )
   expect_error(
     prepare_cfr_data(ll, obs_time = as.Date(c("2026-01-10", "2026-01-30"))),
-    "length"
+    "one date, one per row"
   )
 })
