@@ -2,9 +2,9 @@
 # which exercises the family / formula / stancode / translate paths (cure_model.R
 # and translate.R) but needs no CmdStan, so it runs on CI where the fit tests skip.
 
-stancode_for <- function(cure, delay, recovery_delay = NULL) {
+stancode_for <- function(cure, delay, recovery_delay = NULL, extra = NULL) {
   dd <- .delay_family_prior(delay)
-  prior <- c(.prob_prior_to_brms(Beta(1, 1)), dd$prior)
+  prior <- c(.prob_prior_to_brms(Beta(1, 1)), dd$prior, extra)
   if (!is.null(recovery_delay) && isTRUE(attr(cure, "use_recovery"))) {
     rd <- .delay_family_prior(recovery_delay, main = FALSE)
     prior <- c(prior, rd$prior)
@@ -158,4 +158,53 @@ test_that("survival terms are computed on the log scale", {
   expect_true(grepl("log1m_exp", code, fixed = TRUE))
   expect_true(grepl("primarycensored_lcdf", code, fixed = TRUE))
   expect_false(grepl("log1m(fbar", code, fixed = TRUE))
+})
+
+test_that("a loss_prior adds loss parameters and the mixture to the lpmf", {
+  ll <- simulate_linelist(
+    n = 100, cfr = 0.4, delay = Gamma(mean = 6, sd = 4),
+    recovery = Gamma(mean = 12, sd = 4)
+  )
+  cure <- as_epidist_cure_model(
+    prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+  )
+  code_for <- function(loss_prior) {
+    spec <- .loss_spec(loss_prior)
+    attr(cure, "loss_parts") <- spec$parts
+    attr(cure, "loss_dpars") <- spec$dpars
+    stancode_for(
+      cure, Gamma(shape = Normal(2, 1), rate = Normal(0.3, 0.1)),
+      Gamma(shape = Normal(9, 3), rate = Normal(0.75, 0.3)), spec$prior
+    )
+  }
+
+  plain <- code_for(NULL)
+  expect_false(grepl("real loss", plain, fixed = TRUE))
+
+  # one probability whatever the outcome
+  shared <- code_for(Beta(1, 1))
+  expect_true(grepl("real loss,", shared, fixed = TRUE))
+  expect_true(grepl("log1m(loss) + log(prob)", shared, fixed = TRUE))
+  expect_true(grepl("log(prob) + log(loss)", shared, fixed = TRUE))
+  expect_true(grepl("log1m(prob) + log(loss)", shared, fixed = TRUE))
+
+  # every death recorded, a recovery sometimes not: no loss term for deaths
+  one_sided <- code_for(list(death = 0, recovery = Beta(1, 1)))
+  expect_false(grepl("dloss", one_sided, fixed = TRUE))
+  expect_true(grepl("log1m(rloss) + log1m(prob)", one_sided, fixed = TRUE))
+  expect_true(grepl("log(prob) + log_surv_d", one_sided, fixed = TRUE))
+  expect_false(grepl("log(prob) + log(", one_sided, fixed = TRUE))
+
+  # a fixed probability becomes a literal rather than a parameter
+  fixed <- code_for(list(death = 0.05, recovery = Beta(1, 1)))
+  expect_false(grepl("real dloss", fixed, fixed = TRUE))
+  expect_true(grepl("log1m(0.05000000)", fixed, fixed = TRUE))
+})
+
+test_that(".loss_spec rejects malformed loss priors", {
+  expect_error(.loss_spec(list(death = 0)), "`death` and `recovery`")
+  expect_error(.loss_spec(list(death = 0, recovery = 1)), "probability below 1")
+  expect_error(
+    .loss_spec(list(death = 0, recovery = -0.1)), "probability below 1"
+  )
 })

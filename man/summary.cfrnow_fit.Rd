@@ -39,7 +39,10 @@ A data frame with one row per quantity: \code{prob} (or one
 }
 \description{
 Reports the corrected CFR and the onset-to-death delay (mean and sd, in days)
-as posterior quantiles with convergence diagnostics (\code{rhat}, \code{ess_bulk}). The
+as posterior quantiles with convergence diagnostics (\code{rhat}, \code{ess_bulk}). A
+fit with a \code{loss_prior} also reports the estimated probability of being lost
+to follow-up, as \code{loss}, or as \code{loss_death} and \code{loss_recovery} when the two
+outcomes have their own. The
 naive \code{deaths / cases} ratio is returned as an attribute; in real time it
 underestimates the corrected CFR because not every fatal case has died by the
 cut-off.

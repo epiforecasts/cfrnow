@@ -197,3 +197,43 @@ test_that("replicates work when the delay runs far past a tight bound", {
   )
   expect_lt(sum(abs(empirical - model)) / 2, 0.02)
 })
+
+test_that("replicates follow each case only as long as the data did", {
+  testthat::skip_if_not_installed("cmdstanr")
+  testthat::skip_if(
+    is.null(tryCatch(cmdstanr::cmdstan_version(), error = function(e) NULL)),
+    "cmdstan not installed"
+  )
+
+  set.seed(42)
+  ll <- simulate_linelist(
+    n = 400, cfr = 0.4, delay = LogNormal(2.0, 0.5),
+    recovery = LogNormal(2.6, 0.4)
+  )
+  # 40% of cases stop being followed two days after onset, so their outcome
+  # never arrives
+  early <- sample(nrow(ll), 160)
+  ll$seen <- as.Date(NA)
+  ll$seen[early] <- ll$onset_date[early] + 2
+  ll$death_date[early] <- NA
+  ll$recovery_date[early] <- NA
+  d <- prepare_cfr_data(ll,
+    obs_time = max(ll$onset_date) - 5, last_contact_date = "seen"
+  )
+  fit <- fit_cfr(d,
+    delay = LogNormal(Normal(2.0, 0.2), Normal(0.5, 0.15)),
+    recovery_delay = LogNormal(Normal(2.6, 0.2), Normal(0.4, 0.15)),
+    backend = "cmdstanr", chains = 1, iter = 500, warmup = 250,
+    refresh = 0, seed = 42
+  )
+
+  # following every case to the cut-off instead would replicate far more
+  # deaths and recoveries than were recorded, calling a working fit a misfit
+  reps <- .cfr_replicate(fit, 200)
+  for (what in c("deaths", "recoveries")) {
+    pd <- reps$counts$n[reps$counts$outcome == what]
+    obs <- reps$observed_counts$n[reps$observed_counts$outcome == what]
+    expect_gte(obs, stats::quantile(pd, 0.025))
+    expect_lte(obs, stats::quantile(pd, 0.975))
+  }
+})
