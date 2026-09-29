@@ -120,13 +120,20 @@ on time) on `prob` via a `formula`:
 ``` r
 fit_cfr(d, delay = Gamma(shape = Normal(3, 1), rate = Normal(0.25, 0.1))) # gamma
 fit_cfr(d, delay = LogNormal(meanlog = 2.41, sdlog = 0.51)) # fixed-F
-fit_cfr(d,
+# two-outcome: a line list with recovery dates as well
+llr <- simulate_linelist(
+  n = 400, cfr = 0.55, onset_days = 45,
+  delay = Gamma(mean = 12.75, sd = 7), recovery = LogNormal(2.9, 0.5)
+)
+dr <- prepare_cfr_data(llr, obs_time = as.Date("2026-02-20"))
+fit_cfr(dr,
   delay = onset_to_death,
   recovery_delay = LogNormal(Normal(2.9, 0.3), Normal(0.5, 0.2))
-) # two-outcome
+)
 
 # covariate / time-varying CFR: carry the column through the prep, then
 # reference it in the formula (the onset date rides along as `onset`).
+ll$age_group <- sample(c("<65", "65+"), nrow(ll), replace = TRUE)
 dc <- prepare_cfr_data(ll, obs_time = as.Date("2026-02-20"), covariates = "age_group")
 fit_cfr(dc, delay = onset_to_death, formula = brms::bf(mu ~ 1, prob ~ age_group))
 ```
@@ -162,11 +169,13 @@ reading before you quote a number:
   say otherwise: one delay and one CFR for the whole outbreak. Put a
   formula on `prob` (a smooth on time, say) to let it vary.
 - The delay family is a modelling choice, not something the fit learns.
-  Gamma and lognormal differ in tail weight (how fast a recent case
-  counts as “probably cured”), and sparse data can’t tell them apart, so
-  refit with the other one to check sensitivity.
+  Gamma, lognormal and Weibull differ in tail weight (how fast a recent
+  case counts as “probably cured”), and sparse data can’t tell them
+  apart, so refit with another to check sensitivity.
 - Recovery timing leans on complete discharge data. In the two-outcome
   fit a case that really recovered but whose recovery went unrecorded
   stays censored and drifts toward the fatal branch over time, biasing
   `prob` *up*. The death-only default (no `recovery_date`) sidesteps
-  this, so prefer it where discharge recording is patchy.
+  this, so prefer it where discharge recording is patchy, or give the
+  two-outcome fit a `loss_prior` to allow for outcomes that are never
+  recorded.
