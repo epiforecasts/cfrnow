@@ -92,10 +92,12 @@
 #' `pi` sits close to its (covariate-specific) `prob`; only once it has been
 #' followed for close to the typical delay does `pi` move away from `prob`
 #' towards 0 or 1. Averaging `pi` over cases grouped by onset date therefore
-#' gives a real-time CFR for each onset period, with credible intervals and
-#' without needing a time trend in `prob` -- but estimates for the most recent
-#' periods, whose cases have had little follow-up, lean towards the fitted
-#' `prob` for those cases' covariates rather than their eventual outcome.
+#' gives the expected fatal fraction for each onset period without needing a
+#' time trend in `prob`. For intervals on the fraction that actually dies, draw
+#' each case's outcome from its `pi` before averaging. Estimates for the most
+#' recent periods, whose cases have had little follow-up, lean towards the
+#' fitted `prob` for those cases' covariates rather than their eventual
+#' outcome.
 #'
 #' Works for any of the supported delay families and any `prob` or delay
 #' `formula`, since the per-case parameters come from `posterior_linpred()`.
@@ -110,11 +112,14 @@
 #' fit <- fit_cfr(d, delay = LogNormal(Normal(2.4, 0.2), Normal(0.5, 0.15)))
 #' pi <- posterior_prob_death(fit)
 #'
-#' # real-time CFR by onset week: average pi over the cases in each week
+#' # real-time CFR by onset week: draw each case's outcome from its pi, then
+#' # take the fatal fraction of the cases in each week
+#' pi <- posterior::as_draws_matrix(pi)
+#' fatal <- matrix(rbinom(length(pi), 1, pi), nrow(pi))
 #' week <- cut(fit$cfrnow$onset, "week")
 #' by_week <- vapply(split(seq_along(week), week), function(i) {
-#'   rowMeans(pi[, i, drop = FALSE])
-#' }, numeric(nrow(pi)))
+#'   rowMeans(fatal[, i, drop = FALSE])
+#' }, numeric(nrow(fatal)))
 #' apply(by_week, 2, stats::quantile, probs = c(0.025, 0.5, 0.975))
 #' }
 #' @family fit
