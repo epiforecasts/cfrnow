@@ -11,7 +11,9 @@
 #' Onset is taken over the day-window `[onset_lower, onset_upper]` when those
 #' columns are present, defaulting to a one-day window at `onset_date` for a
 #' case whose window is missing (`NA`), or for every case when the columns are
-#' absent. Deaths and recoveries are recorded to the day.
+#' absent. In real time, a window that closes after the case's cut-off is cut
+#' back to the cut-off, since the case was already known then. Deaths and
+#' recoveries are recorded to the day.
 #'
 #' Records that cannot be used are dropped with a warning: a missing onset, an
 #' inverted onset window (`onset_upper < onset_lower`), a death with an
@@ -118,6 +120,13 @@ prepare_cfr_data <- function(linelist, obs_time = NULL,
   if (is.null(t0)) t0 <- min(onset, na.rm = TRUE) - max_delay
   t0 <- as.Date(t0)
 
+  # In real time a case is known by its cut-off, so its onset came no later: a
+  # window reaching past the cut-off is cut back to it. One that opens after
+  # the cut-off is left as it is, and the case is excluded below.
+  if (!retrospective) {
+    known <- !is.na(onset_lo) & !is.na(onset_up) & onset_lo <= obs_time
+    onset_up[known] <- pmin(onset_up[known], obs_time[known])
+  }
   onset_lo_day <- as.numeric(onset_lo - t0)
   width <- as.numeric(onset_up - onset_lo) + 1 # onset-window width, days
   # one offset per case: each case is observed up to its own cut-off

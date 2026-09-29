@@ -110,6 +110,23 @@ test_that("a case with no onset window keeps a one-day window at its onset", {
   expect_equal(d$cases$pwindow, c(3, 1))
 })
 
+test_that("an onset window reaching past the cut-off is cut back to it", {
+  ll <- data.frame(
+    onset_date = as.Date(c(NA, "2026-01-10")),
+    onset_lower = as.Date(c("2026-01-15", "2026-01-10")),
+    onset_upper = as.Date(c("2026-01-25", "2026-01-10")),
+    death_date = as.Date(c(NA, NA))
+  )
+  d <- prepare_cfr_data(ll, obs_time = as.Date("2026-01-20"))
+  # the case was known by the 20th, so its onset lies in [15th, 20th]
+  expect_equal(d$cases$pwindow, c(6, 1))
+  expect_equal(d$cases$y[1], 6)
+
+  # retrospectively the whole window stays
+  r <- prepare_cfr_data(ll, obs_time = NULL)
+  expect_equal(r$cases$pwindow, c(11, 1))
+})
+
 test_that("recovered-by-cutoff cases are timed recoveries, not censored", {
   ll <- data.frame(
     onset_date = as.Date("2026-01-01") + c(0, 1, 2),
