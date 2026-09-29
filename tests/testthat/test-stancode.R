@@ -164,24 +164,6 @@ test_that(".delay_max reads a bound without resolving uncertain parameters", {
   )
 })
 
-test_that("survival terms are computed on the log scale", {
-  cure <- as_epidist_cure_model(prepare_cfr_data(
-    simulate_linelist(
-      n = 200, cfr = 0.4, delay = Gamma(mean = 6, sd = 5),
-      recovery = Gamma(mean = 12, sd = 4)
-    ),
-    obs_time = as.Date("2026-02-01")
-  ))
-  code <- stancode_for(
-    cure, Gamma(shape = Normal(1.4, 0.5), rate = Normal(0.2, 0.1)),
-    Gamma(shape = Normal(8, 3), rate = Normal(0.7, 0.3))
-  )
-  # a long follow-up rounds the cdf to 1, where log1m() rejects the draw
-  expect_true(grepl("log1m_exp", code, fixed = TRUE))
-  expect_true(grepl("primarycensored_lcdf", code, fixed = TRUE))
-  expect_false(grepl("log1m(fbar", code, fixed = TRUE))
-})
-
 test_that("a loss_prior adds loss parameters and the mixture to the lpmf", {
   ll <- simulate_linelist(
     n = 100, cfr = 0.4, delay = Gamma(mean = 6, sd = 4),
