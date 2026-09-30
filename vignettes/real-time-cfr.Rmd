@@ -208,7 +208,7 @@ Their cases are largely unresolved, which keeps the probabilities for those case
 - The constant model's `prob` of `r est("early", "constant", "prob", 11)` is an average over the whole outbreak, before and after the step.
   It pulls the prediction for week 11 down to `r interval("early", "constant", "nowcast", 11)`.
 - The random walk's `prob` for week 11 is `r interval("early", "random walk", "prob", 11)`.
-  With few resolved cases in that week, it continues the rise of the weeks before, with a wide interval.
+  With few resolved cases in that week, it stays close to week 10, with a wide interval.
   The prediction for week 11 is `r interval("early", "random walk", "nowcast", 11)`.
 
 ## Estimates six weeks after the last onset
@@ -249,7 +249,7 @@ The code for the weekly estimates stays the same, because `posterior_prob_death(
 `prob` is the model's CFR for a case from that week.
 With a constant formula it is one number for the whole outbreak.
 With a random walk, each week's value rests on that week's resolved cases and on its neighbours.
-For the latest weeks, which have few resolved cases, it mostly continues the trend of the weeks before.
+For the latest weeks, which have few resolved cases, it mostly follows the week before.
 
 The predicted fatal fraction estimates the fraction of that week's cases that die.
 For a recorded death it uses what happened.
