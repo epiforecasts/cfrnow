@@ -1,11 +1,9 @@
-# cfrnow (development version)
-
-* Added a "Real-time CFR over time" vignette. It compares a time-varying `prob`
-  with the weekly average of `posterior_prob_death()` on an outbreak whose CFR
-  rises late, at two cut-offs.
-
 # cfrnow 0.3.0
 
+* Added a "Real-time CFR over time" vignette. On an outbreak whose CFR rises
+  late, it compares weekly `prob` from a constant and a random-walk model with
+  the predicted fatal fraction built from `posterior_prob_death()`, at two
+  cut-offs.
 * The model parameter (and its prior) is renamed from `cfr` to `prob`, since it
   is a case fatality ratio only when the line list runs from onset to death; the
   same model can fit a hospital fatality ratio or other outcome probability for a
