@@ -245,7 +245,7 @@ estimates <- rbind(
 plot_weekly("late", late)
 ```
 
-Six more weeks of follow-up give nearly every fatal case time to die and make
+Five more weeks of follow-up give nearly every fatal case time to die and make
 the survivors near-certain. The predicted fatal fraction is now close to the
 realised fraction in every week, with almost no uncertainty. The naive ratio
 has caught up with it. `prob` keeps its intervals, because it estimates
