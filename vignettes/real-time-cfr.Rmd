@@ -192,15 +192,16 @@ plot_weekly <- function(cut, cure) {
 
 ## Estimates one week after the last onset
 
-```{r early, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates one week after the last onset from a constant and a random-walk model. The constant model's prob is flat; the random walk's prob rises after the step, with intervals widening towards the last week. The predicted fatal fraction matches the realised fractions for the earlier weeks under both models and, for the last two weeks, is pulled towards each model's prob."}
+```{r early, fig.width = 7, fig.height = 4.5, fig.alt = "Weekly CFR estimates one week after the last onset from a constant and a random-walk model. The constant model's prob is flat; the random walk's prob rises after the step, with intervals widening towards the last week. The predicted fatal fraction matches the realised fractions up to week 7 under both models and, for the last two weeks, is pulled towards each model's prob."}
 plot_weekly("early", early)
 ```
 
 The naive ratio (grey) falls away in the last weeks, because most of their deaths have yet to happen: `r if (exists("early")) sprintf("%.2f", mean(early$outcome[early$week == 11] == 1)) else "..."` in week 11, against the `r sprintf("%.2f", truth[week == 11, realised])` of that week's cases that die.
 
-For the earlier weeks, the predicted fatal fraction is the same under both models and has almost no uncertainty.
+Up to week 7, the predicted fatal fraction is the same under both models and has almost no uncertainty.
 Nearly every case from those weeks has died or has been followed long enough to be a near-certain survivor.
 The prediction is then the realised fraction, including its chance variation around the true CFR.
+Weeks 8 and 9 still have some unresolved cases, which gives their predictions a narrow interval.
 
 The models differ most in weeks 10 and 11.
 Their cases are largely unresolved, which keeps the probabilities for those cases close to their `prob`:
