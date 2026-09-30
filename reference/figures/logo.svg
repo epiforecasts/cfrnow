@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1732" height="2000" viewBox="0 0 1732 2000">
+<defs>
+<linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#FFFFFF"/>
+<stop offset="1" stop-color="#FDF2F5"/>
+</linearGradient>
+<clipPath id="clip"><polygon points="866,0 1732,500 1732,1500 866,2000 0,1500 0,500"/></clipPath>
+</defs>
+<polygon points="866,0 1732,500 1732,1500 866,2000 0,1500 0,500" fill="url(#g)"/>
+<g clip-path="url(#clip)">
+<line x1="210" y1="1100" x2="210" y2="390" stroke="#E2E8EF" stroke-width="12" stroke-linecap="round"/>
+<line x1="250" y1="450" x2="1194" y2="450" stroke="#D3DDE7" stroke-width="34" stroke-linecap="round"/>
+<circle cx="1194" cy="450" r="42" fill="#A82A44"/>
+<line x1="250" y1="568" x2="698" y2="568" stroke="#D3DDE7" stroke-width="34" stroke-linecap="round"/>
+<circle cx="698" cy="568" r="34" fill="#FFFFFF" stroke="#2E7DB8" stroke-width="24"/>
+<line x1="250" y1="686" x2="982" y2="686" stroke="#D3DDE7" stroke-width="34" stroke-linecap="round"/>
+<circle cx="982" cy="686" r="34" fill="#FFFFFF" stroke="#2E7DB8" stroke-width="24"/>
+<line x1="250" y1="804" x2="557" y2="804" stroke="#D3DDE7" stroke-width="34" stroke-linecap="round"/>
+<circle cx="557" cy="804" r="42" fill="#A82A44"/>
+<line x1="250" y1="922" x2="1336" y2="922" stroke="#D3DDE7" stroke-width="34" stroke-linecap="round"/>
+<path d="M 1336 922 l 86 0 m -34 -34 l 34 34 l -34 34" fill="none" stroke="#8A98A8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="250" y1="1040" x2="840" y2="1040" stroke="#D3DDE7" stroke-width="34" stroke-linecap="round"/>
+<path d="M 840 1040 l 86 0 m -34 -34 l 34 34 l -34 34" fill="none" stroke="#8A98A8" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<text x="866" y="1610" text-anchor="middle" font-family="Fira Sans, DejaVu Sans, Helvetica, Arial, sans-serif" font-size="252" font-weight="600" letter-spacing="2" fill="#16212A">cfr<tspan fill="#A82A44">now</tspan></text>
+<polygon points="866,0 1732,500 1732,1500 866,2000 0,1500 0,500" fill="none" stroke="#A82A44" stroke-width="44" stroke-linejoin="round"/>
+</svg>

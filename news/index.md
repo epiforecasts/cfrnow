@@ -1,0 +1,159 @@
+# Changelog
+
+## cfrnow (development version)
+
+## cfrnow 0.3.0
+
+- Added a “Real-time CFR over time” vignette. On an outbreak whose CFR
+  rises late, it compares weekly `prob` from a constant and a
+  random-walk model with the predicted fatal fraction built from
+  [`posterior_prob_death()`](https://epiforecasts.io/cfrnow/reference/posterior_prob_death.md),
+  then refits the random walk after more follow-up.
+- The model parameter (and its prior) is renamed from `cfr` to `prob`,
+  since it is a case fatality ratio only when the line list runs from
+  onset to death; the same model can fit a hospital fatality ratio or
+  other outcome probability for a differently defined line list. Use
+  `prob ~ ...` in `formula` and `prob_prior` in
+  [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md);
+  [`summary()`](https://rdrr.io/r/base/summary.html) now reports a
+  `prob` (or `prob[<group>]`) row. `cfr ~ ...` and `cfr_prior` are still
+  accepted and translated to `prob`, with a soft-deprecation warning.
+- [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md)
+  gains `loss_prior`, a prior on the probability that a case is lost to
+  follow-up and its outcome never recorded. A fit that allows for loss
+  estimates it alongside the outcome probability and the delays, and
+  [`summary()`](https://rdrr.io/r/base/summary.html) reports it. Without
+  it, cases that stay unresolved far longer than the delays allow either
+  stretch the delay’s tail or stop the sampler from starting. A single
+  [`Beta()`](https://epiforecasts.io/distspec/reference/Beta.html) gives
+  one probability whatever the outcome;
+  `list(death = 0, recovery = Beta(1, 1))` gives each outcome its own,
+  fixed or estimated. Estimating both is a sensitivity analysis, since
+  the data cannot tell them apart, and
+  [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md)
+  warns. A `loss_prior` needs recorded recoveries and a `recovery_delay`
+  to time them.
+- [`prepare_cfr_data()`](https://epiforecasts.io/cfrnow/reference/prepare_cfr_data.md)
+  gains `last_contact_date`, the column holding the date a case with no
+  recorded outcome was last known unresolved. Such a case is censored
+  there instead of at the cut-off, in retrospective fits too.
+- [`prepare_cfr_data()`](https://epiforecasts.io/cfrnow/reference/prepare_cfr_data.md)’s
+  `obs_time` accepts a vector of per-case cut-offs, or the name of a
+  `linelist` column holding them, so a case reported by a site that cut
+  off earlier is judged against its own cut-off rather than the latest
+  one in the data.
+  [`pp_check_cfr()`](https://epiforecasts.io/cfrnow/reference/pp_check_cfr.md)
+  replays each case’s own cut-off when building its follow-up horizon.
+- Added
+  [`posterior_prob_death()`](https://epiforecasts.io/cfrnow/reference/posterior_prob_death.md),
+  returning draws of the posterior probability of death for each case:
+  `prob` updated by Bayes’ rule on a censored case’s follow-up, or the
+  deterministic outcome for a resolved case. Averaging these draws over
+  cases by onset date gives a real-time CFR for each onset period
+  without a time trend in `prob`.
+- A delay’s `max` is now honoured:
+  [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md)
+  truncates the fitted delay at the bound (`LogNormal(..., max = 30)`),
+  [`simulate_linelist()`](https://epiforecasts.io/cfrnow/reference/simulate_linelist.md)
+  draws from the truncated delay, and
+  [`pp_check_cfr()`](https://epiforecasts.io/cfrnow/reference/pp_check_cfr.md)
+  replicates from it. Previously the bound was silently ignored. The
+  bound applies to the recorded delay: it runs from 0 to `max - 1` days,
+  the same support distspec gives the delay object.
+  [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md)
+  also stops, with a message naming the cases, when a recorded delay or
+  an unresolved case falls outside the bounds and would otherwise fail
+  inside Stan.
+- The survival term for an unresolved case is computed on the log scale
+  (`primarycensored_lcdf()` and `log1m_exp()`) instead of `log1m()`. A
+  case followed up for much longer than the delay rounds the CDF to 1,
+  which made `log1m()` reject every draw with
+  `log1m: x is 1, but must be less than or equal to 1` and left the
+  chains stuck at their starting values.
+- [`pp_check_cfr()`](https://epiforecasts.io/cfrnow/reference/pp_check_cfr.md)
+  now draws Weibull-family replicate delays from a Weibull distribution
+  instead of a gamma, so posterior-predictive checks for a Weibull fit
+  compare against the right spread of delays.
+- [`prepare_cfr_data()`](https://epiforecasts.io/cfrnow/reference/prepare_cfr_data.md)
+  gives a case with no onset window of its own (`NA` in
+  `onset_lower`/`onset_upper`) a one-day window at its onset date, where
+  it was previously dropped as unusable. In real time, an onset window
+  that closes after the case’s cut-off is cut back to the cut-off.
+- [`prepare_cfr_data()`](https://epiforecasts.io/cfrnow/reference/prepare_cfr_data.md)
+  stops when a requested covariate or an `obs_time` column is missing
+  from the line list, and
+  [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md)
+  warns when a `recovery_delay` has no recorded recoveries to time.
+
+## cfrnow 0.2.1
+
+- [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md)
+  warns and
+  [`pp_check_cfr()`](https://epiforecasts.io/cfrnow/reference/pp_check_cfr.md)
+  no longer errors when a `formula` covariate has missing values: brms
+  drops those cases before fitting, and the stored onset dates are now
+  kept in step with the rows it actually used.
+- distspec is now on CRAN, so it is dropped from `Remotes` and installed
+  from CRAN like the other dependencies.
+
+## cfrnow 0.2.0
+
+- [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md) and
+  [`simulate_linelist()`](https://epiforecasts.io/cfrnow/reference/simulate_linelist.md)
+  support a
+  [`Weibull()`](https://epiforecasts.io/distspec/reference/Weibull.html)
+  onset-to-death (and recovery) delay, alongside
+  [`LogNormal()`](https://epiforecasts.io/distspec/reference/LogNormal.html)
+  and
+  [`Gamma()`](https://epiforecasts.io/distspec/reference/Gamma.html).
+- Delay parameterisation now uses distspec’s exported
+  [`natural_params()`](https://epiforecasts.io/distspec/reference/natural_params.html)
+  in place of an internal helper, tracking the distspec API.
+- Added a “Stratified and partially-pooled CFR” vignette covering no-,
+  complete- and partial-pooling CFR fits and per-group
+  [`summary()`](https://rdrr.io/r/base/summary.html) output.
+- [`pp_check_cfr()`](https://epiforecasts.io/cfrnow/reference/pp_check_cfr.md)
+  runs a posterior-predictive check on a fit: it draws replicate
+  line-list outcomes from the posterior, replays the real-time
+  truncation, and compares the observed death counts (plus recoveries in
+  a two-outcome fit) and the observed onset-to-death delays against the
+  replicates ([\#14](https://github.com/epiforecasts/cfrnow/issues/14)).
+- [`summary()`](https://rdrr.io/r/base/summary.html) gains an
+  `ascertainment_ratio` argument that corrects the CFR for
+  outcome-dependent case ascertainment (fatal and non-fatal cases
+  entering the line list at different rates). The ratio is supplied,
+  defaulting to 1.
+- [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md)
+  accepts intercept-free CFR formulas (e.g. `cfr ~ 0 + group`, one
+  estimated logit-CFR per group): the `cfr_prior` is placed on those
+  coefficients rather than a non-existent intercept, so the fit no
+  longer fails brms prior validation.
+- [`summary()`](https://rdrr.io/r/base/summary.html) reports a CFR per
+  group for a `cfr ~ group` fit (one `cfr[<group>]` row per group),
+  rather than erroring or silently reporting only the reference level.
+
+## cfrnow 0.1.0
+
+First release.
+
+- [`fit_cfr()`](https://epiforecasts.io/cfrnow/reference/fit_cfr.md)
+  estimates a real-time case fatality ratio from line-list data with a
+  Bayesian mixture-cure survival model. It is registered as an `epidist`
+  model type, so the CFR and the onset-to-death delay both take `brms`
+  formulas.
+- [`prepare_cfr_data()`](https://epiforecasts.io/cfrnow/reference/prepare_cfr_data.md)
+  turns a line list into model inputs. It sorts each case, at a chosen
+  observation cut-off, into an observed death, a resolved non-death, or
+  a right-censored survivor.
+- The onset-to-death delay (LogNormal or Gamma) can be co-estimated or
+  held fixed. Hold it fixed and you get the Ghani/Nishiura estimator.
+- Pass a `recovery_date` column and a two-outcome fit also times
+  recoveries.
+- Put a `brms` formula on the CFR or the delay for covariates or a
+  time-varying CFR.
+- [`simulate_linelist()`](https://epiforecasts.io/cfrnow/reference/simulate_linelist.md)
+  builds line lists for testing and examples.
+- [`summary()`](https://rdrr.io/r/base/summary.html) and
+  [`print()`](https://rdrr.io/r/base/print.html) report the corrected
+  CFR, the delay moments, convergence diagnostics, and a flag for when
+  the CFR is only weakly identified.
