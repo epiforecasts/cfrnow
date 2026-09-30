@@ -52,7 +52,7 @@ ll <- data.frame(onset_date = onset_date, death_date = death_date)
 
 We prepare the data one week after the last onset, add the onset week as a
 column, and fit two models: one with a constant `prob`, and one where `prob`
-follows a natural spline in the onset week. The delay is estimated in both.
+follows a natural spline in the onset week.
 
 ```{r fit, eval = FALSE}
 cure <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) + 7) |>
@@ -77,8 +77,8 @@ fit_spline <- fit_cfr(cure,
 For a fit, `brms::posterior_epred(fit, dpar = "prob")` gives the draws of `prob`
 for every case. `posterior_prob_death(fit)` gives the draws of each case's
 probability of death. A death already recorded counts as 1 and a recovery as 0.
-A case still unresolved at the cut-off gets its `prob` updated by how long it
-has gone without dying: the longer it has been followed, the lower its
+A case still unresolved at the cut-off gets its `prob` updated by the time
+passed since symptom onset: the longer ago symptoms began, the lower its
 probability. Averaging these probabilities over a week's cases gives the fatal
 fraction the model expects for that week. For an interval on the fraction that
 actually dies, we also draw each case's outcome from its probability, once per
@@ -195,13 +195,12 @@ the shape the formula allows.
 
 The predicted fatal fraction estimates the fraction of that week's cases that
 die. For a recorded death it uses what happened; for a case still unresolved it
-falls back on the model's `prob`, lowered by how long the case has gone without
-dying. Its interval covers the model's parameters and
-whether each unresolved case dies, but it assumes the model is right: in week 11
-at the early cut-off, the realised 0.47 lies outside the interval of both
-models. Once the fatal cases have died and the survivors have been followed
-well past the delay, the interval is close to zero width, even though the
-underlying CFR is still uncertain.
+falls back on the model's `prob`, lowered by the time passed since symptom
+onset. Its interval covers the model's parameters and whether each unresolved
+case dies, but it assumes the model is right: in week 11 at the early cut-off,
+the realised 0.47 lies outside the interval of both models. Once the fatal cases
+have died and the survivors have been followed well past the delay, the interval
+is close to zero width, even though the underlying CFR is still uncertain.
 
 In practice:
 
