@@ -177,9 +177,10 @@ plot_weekly <- function(cut, cure) {
   ggplot(est_cut, aes(week)) +
     geom_ribbon(aes(ymin = lower, ymax = upper, fill = quantity), alpha = 0.3) +
     geom_line(aes(y = median, colour = quantity), linewidth = 0.8) +
+    # repeat the last week so the step also spans it
     geom_step(
-      data = truth, aes(x = week - 0.5, y = true_cfr), direction = "hv",
-      linetype = "dashed"
+      data = rbind(truth, truth[.N][, week := week + 1]),
+      aes(x = week - 0.5, y = true_cfr), direction = "hv", linetype = "dashed"
     ) +
     geom_point(data = truth, aes(y = realised), shape = 4, size = 2) +
     geom_point(data = naive, aes(y = naive), colour = "grey50") +
