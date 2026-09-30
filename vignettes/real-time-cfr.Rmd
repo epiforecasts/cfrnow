@@ -12,23 +12,22 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```
 
 The case fatality ratio often changes during an outbreak, as the population
-affected, the pathogen or the care available changes. This vignette looks at
-two estimates of the CFR for each week of onset. The first is `prob`, the
+affected, the pathogen or the care available changes. This vignette looks at two
+estimates of the CFR for each week of onset. The first is `prob`, the
 probability of death the fitted model gives a case from that week; `fit_cfr()`
-estimates it, and a formula lets it vary over time. The second is the fraction
-of that week's cases that will die, given what has been observed about them so
-far. `posterior_prob_death()` gives each case's probability of death, and from
-these we get a predicted fatal fraction for each week.
+estimates it, with a formula to let it vary over time. The second is the
+fraction of that week's cases that will die, given what has been observed about
+them so far. From each case's probability of death, which
+`posterior_prob_death()` gives, we get a predicted fatal fraction for each week.
 
-The two answer different questions, and they draw on different information. We
+The two answer different questions and draw on different information. We
 compare them on a simulated outbreak whose CFR rises late, fitted at two
 cut-offs.
 
-## A line list where the CFR rises
+## Simulation setup
 
 Onsets are spread over twelve weeks. The true CFR is 0.25 up to week 7 and 0.5
-from week 8, and the onset-to-death delay is lognormal with a mean of about 13
-days.
+from week 8. The onset-to-death delay is lognormal with a mean of about 13 days.
 
 ```{r simulate, eval = FALSE}
 library(cfrnow)
@@ -76,7 +75,7 @@ fit_spline <- fit_cfr(cure,
 ## From per-case probabilities to a weekly CFR
 
 For a fit, `brms::posterior_epred(fit, dpar = "prob")` gives the draws of `prob`
-for every case, and `posterior_prob_death(fit)` gives the draws of each case's
+for every case. `posterior_prob_death(fit)` gives the draws of each case's
 probability of death. A death already recorded counts as 1 and a recovery as 0.
 A case still unresolved at the cut-off gets its `prob` updated by how long it
 has gone without dying: the longer it has been followed, the lower its
@@ -84,8 +83,8 @@ probability. Averaging these probabilities over a week's cases gives the fatal
 fraction the model expects for that week. For an interval on the fraction that
 actually dies, we also draw each case's outcome from its probability, once per
 posterior draw, and take the fraction of fatal outcomes in each week. We call
-this the predicted fatal fraction; its median is close to the expected fraction,
-and its interval also covers whether each unresolved case dies.
+this the predicted fatal fraction. Its median is close to the expected fraction,
+but its interval also covers whether each unresolved case dies.
 
 ```{r nowcast, eval = FALSE}
 weekly <- function(draws, week) {
@@ -155,15 +154,16 @@ cases that die.
 
 For weeks 0 to 7 the predicted fatal fraction is the same under both models and
 has almost no uncertainty. Nearly every case from those weeks has died or has
-been followed long enough to be a near-certain survivor, and the prediction is
-the realised fraction. That includes the chance variation between weeks, such as
-the 0.32 in week 3, where the true CFR is 0.25. Most deaths from weeks 8 and 9
-have already happened, and those weeks already show the step: under the constant
-model the prediction is 0.46 and 0.53, against realised fractions of 0.48 and
-0.55, and the remaining gap comes from the deaths still to come.
+been followed long enough to be a near-certain survivor, which makes the
+prediction the realised fraction. That includes the chance variation between
+weeks, such as the 0.32 in week 3, where the true CFR is 0.25. Because most
+deaths from weeks 8 and 9 have already happened, those weeks already show the
+step: under the constant model the prediction is 0.46 and 0.53, against realised
+fractions of 0.48 and 0.55. The deaths still to come account for the remaining
+gap.
 
 The models differ most in weeks 10 and 11. Their cases are largely unresolved,
-and the probabilities for those cases stay close to their `prob`:
+which keeps the probabilities for those cases close to their `prob`:
 
 - The constant model's `prob` of 0.32 is an average over the whole outbreak. It
   pulls the prediction down to 0.44 in week 10 and 0.37 in week 11.
@@ -178,14 +178,13 @@ and the probabilities for those cases stay close to their `prob`:
 plot_weekly("late")
 ```
 
-With six more weeks of follow-up nearly every fatal case has died, and the
-survivors have been followed long enough to be near-certain. For both models,
-the predicted fatal fraction is now the realised fraction in every week but the
-last, where one death has yet to be recorded, and the naive ratio has caught up
-with it. The two estimates of `prob` still differ, because each is the
-model's estimate of the underlying CFR, and more follow-up only narrows it. The
-constant model gives 0.33 throughout, and the spline's ramp is flatter at the
-end, at 0.53 in week 11.
+Six more weeks of follow-up give nearly every fatal case time to die and make
+the survivors near-certain. For both models, the predicted fatal fraction is now
+the realised fraction in every week but the last, where one death has yet to be
+recorded. The naive ratio has caught up with it. The two estimates of `prob`
+still differ: the constant model gives 0.33 in every week, while the spline
+reaches 0.53 in week 11 at the end of a now flatter ramp. Each estimates the
+underlying CFR, which more follow-up only narrows.
 
 ## Interpreting the two estimates
 
