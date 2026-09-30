@@ -1,3 +1,5 @@
+# cfrnow (development version)
+
 # cfrnow 0.3.0
 
 * Added a "Real-time CFR over time" vignette. On an outbreak whose CFR rises
