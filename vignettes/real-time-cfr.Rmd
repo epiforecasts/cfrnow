@@ -92,7 +92,7 @@ weekly <- function(draws, week) {
     rowMeans(draws[, i, drop = FALSE])
   })
 }
-week_of_case <- cure$week[match(rownames(fit_spline$data), rownames(cure))]
+week_of_case <- as.numeric(fit_spline$cfrnow$onset - onset_start) %/% 7
 
 pi <- posterior::as_draws_matrix(posterior_prob_death(fit_spline))
 fatal <- matrix(rbinom(length(pi), 1, pi), nrow(pi))

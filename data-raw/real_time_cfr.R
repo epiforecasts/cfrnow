@@ -81,8 +81,8 @@ for (cut in names(cutoffs)) {
       backend = "cmdstanr", chains = 4, cores = 4, iter = 1000,
       refresh = 0, seed = 1
     )
-    # brms keeps only the columns a formula uses, so take the week from `cure`
-    fit_week <- cure$week[match(rownames(fit$data), rownames(cure))]
+    # the fit stores each fitted case's onset date in row order
+    fit_week <- as.numeric(fit$cfrnow$onset - onset_start) %/% 7
     prob <- brms::posterior_epred(fit, dpar = "prob")
     pi <- posterior::as_draws_matrix(posterior_prob_death(fit))
     # one outcome per case and draw, so the weekly fraction varies with whether
