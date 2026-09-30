@@ -40,8 +40,9 @@ This vignette looks at two estimates of the CFR for each week of onset:
 - `prob`, the probability of death that the fitted model gives a case from that week, estimated by `fit_cfr()`;
 - the predicted fatal fraction, the fraction of that week's cases expected to die given what has been observed about them so far, built from `posterior_prob_death()`.
 
-We compare them on a simulated outbreak whose CFR rises late, at two cut-offs.
+We compare them on a simulated outbreak whose CFR rises late.
 One model has a constant `prob`; in the other, `prob` follows a random walk over onset weeks.
+We fit both one week after the last onset, then refit the random walk six weeks after it.
 The simulation is the simplest setting: deaths only, no recorded recoveries, no loss to follow-up and one cut-off for all cases.
 "Other settings" below covers what changes otherwise.
 
