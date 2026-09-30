@@ -230,7 +230,8 @@ plot_weekly("late", late)
 Five more weeks of follow-up give nearly every fatal case time to die and make the survivors near-certain.
 The predicted fatal fraction is now close to the realised fraction in every week, with almost no uncertainty.
 The naive ratio has caught up with it.
-`prob` still has wide intervals, because it estimates the underlying CFR, which more follow-up narrows only slowly: for week 11 it is `r interval("late", "random walk", "prob", 11)`.
+`prob` keeps an interval, because it estimates the underlying CFR.
+More follow-up has narrowed it, to `r interval("late", "random walk", "prob", 11)` for week 11.
 
 ## Other settings
 
