@@ -1,4 +1,4 @@
-# cfrnow (development version)
+# cfrnow 0.4.0
 
 * Added `posterior_cumulative_incidence()`, which returns posterior draws of
   the cumulative incidence of death and recovery over time since onset for
