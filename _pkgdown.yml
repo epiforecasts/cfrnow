@@ -22,6 +22,7 @@ reference:
   - summary.cfrnow_fit
   - pp_check_cfr
   - posterior_prob_death
+  - posterior_cumulative_incidence
 - title: Simulation
   contents:
   - simulate_linelist
