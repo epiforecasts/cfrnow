@@ -16,39 +16,45 @@
   }
 }
 
-# Survivor function of a delay, censored for the day of onset -- the censored
-# branch of cure_lpmf_death.stan / cure_lpmf_two_outcome.stan, evaluated here
-# with primarycensored's R censored-CDF rather than its Stan one. `loc` and
-# `scale` are ndraws x ncases matrices of natural-scale delay parameters (as
-# returned by posterior_linpred(transform = TRUE)); `y` and `pwindow` are
-# length-ncases vectors, one value per case. `delay_max` truncates the delay
-# where the likelihood does (Inf when unbounded): the censored CDF is
+# Distribution function of a delay at times `q`, censored for the day of onset
+# -- the censored branch of cure_lpmf_death.stan / cure_lpmf_two_outcome.stan,
+# evaluated here with primarycensored's R censored-CDF rather than its Stan
+# one. `loc` and `scale` are length-ndraws vectors of natural-scale delay
+# parameters for a single case (a column of posterior_linpred(transform =
+# TRUE)), and `pwindow` is that case's onset window. `delay_max` truncates the
+# delay where the likelihood does (Inf when unbounded): the censored CDF is
 # normalised by its value at the bound, as pprimarycensored() does for a
 # finite `D`, which it will not do for vectors of parameters. `q` and
 # `pwindow` have to match the parameter vectors' length for
-# pprimarycensored() to vectorise correctly.
-.delay_survivor <- function(family, y, pwindow, loc, scale, delay_max = Inf) {
-  nd <- nrow(loc)
-  s <- matrix(NA_real_, nd, ncol(loc))
-  for (j in seq_len(ncol(loc))) {
-    np <- .delay_native_params(family, loc[, j], scale[, j])
-    cdf <- function(q) {
-      do.call(primarycensored::pprimarycensored, c(
-        list(
-          q = rep(q, nd), pdist = np$pdist, pwindow = rep(pwindow[j], nd),
-          L = -Inf, D = Inf, check = FALSE
-        ),
-        np$args
-      ))
-    }
-    fbar <- if (is.finite(delay_max)) {
-      if (y[j] >= delay_max) 1 else cdf(y[j]) / cdf(delay_max)
-    } else {
-      cdf(y[j])
-    }
-    s[, j] <- 1 - fbar
+# pprimarycensored() to vectorise correctly. Returns an ndraws x length(q)
+# matrix.
+.delay_cdf <- function(family, q, pwindow, loc, scale, delay_max = Inf) {
+  nd <- length(loc)
+  np <- .delay_native_params(family, loc, scale)
+  cdf <- function(x) {
+    do.call(primarycensored::pprimarycensored, c(
+      list(
+        q = rep(x, nd), pdist = np$pdist, pwindow = rep(pwindow, nd),
+        L = -Inf, D = Inf, check = FALSE
+      ),
+      np$args
+    ))
   }
-  s
+  at_max <- if (is.finite(delay_max)) cdf(delay_max) else 1
+  f <- vapply(q, function(x) {
+    if (x >= delay_max) rep(1, nd) else cdf(x) / at_max
+  }, numeric(nd))
+  matrix(f, nd, length(q))
+}
+
+# Survivor function of a delay at each case's own follow-up time: `loc` and
+# `scale` are ndraws x ncases matrices, and `y` and `pwindow` are
+# length-ncases vectors, one value per case.
+.delay_survivor <- function(family, y, pwindow, loc, scale, delay_max = Inf) {
+  s <- vapply(seq_along(y), function(j) {
+    1 - .delay_cdf(family, y[j], pwindow[j], loc[, j], scale[, j], delay_max)
+  }, numeric(nrow(loc)))
+  matrix(s, nrow(loc), length(y))
 }
 
 # Bayes update of `prob` on a case's follow-up: p * U_D(y) / (p * U_D(y) +

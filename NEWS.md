@@ -1,5 +1,11 @@
 # cfrnow (development version)
 
+* Added `posterior_cumulative_incidence()`, which returns posterior draws of
+  the cumulative incidence of death and recovery over time since onset for
+  given covariate patterns, or the daily cause-specific or subdistribution
+  hazards. Hazard ratios between covariate patterns follow from these and vary
+  over time.
+
 # cfrnow 0.3.0
 
 * Added a "Real-time CFR over time" vignette. On an outbreak whose CFR rises
