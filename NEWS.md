@@ -1,3 +1,5 @@
+# cfrnow (development version)
+
 # cfrnow 0.4.0
 
 * Added `posterior_cumulative_incidence()`, which returns posterior draws of
