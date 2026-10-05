@@ -28,8 +28,9 @@
 #'
 #' @param object A `cfrnow_fit` from [fit_cfr()].
 #' @param newdata A data frame with the covariates of the `prob` and delay
-#'   formulas, one row per covariate pattern. Defaults to the fitted cases,
-#'   `object$data`.
+#'   formulas, one row per covariate pattern. Defaults to the distinct
+#'   covariate patterns among the fitted cases, in the order they first appear
+#'   in `object$data` (a single row for a fit without covariates).
 #' @param times Days since onset at which to evaluate. Defaults to every day
 #'   from 0 to the longest follow-up in the fitted data.
 #' @param type `"cumulative_incidence"` (the default), `"hazard"` for the
@@ -82,7 +83,7 @@ posterior_cumulative_incidence <- function(object, newdata = NULL,
     stop("`object` must come from fit_cfr().", call. = FALSE)
   }
   type <- match.arg(type)
-  newdata <- .with_addition_terms(newdata %||% object$data)
+  newdata <- .with_addition_terms(newdata %||% .covariate_patterns(object))
   times <- times %||% seq(0, ceiling(max(object$data$y)))
   checkmate::assert_numeric(times, lower = 0, any.missing = FALSE, min.len = 1)
   checkmate::assert_number(pwindow, lower = 0)
@@ -130,6 +131,21 @@ posterior_cumulative_incidence <- function(object, newdata = NULL,
     )
   })
   do.call(rbind, out)
+}
+
+# Distinct covariate patterns among the fitted cases: cases that share one have
+# identical curves, so evaluating every case would only repeat them.
+.covariate_patterns <- function(object) {
+  covariates <- setdiff(
+    names(object$data), c("y", "outcome", "pwindow", "swindow")
+  )
+  patterns <- if (length(covariates) == 0) {
+    object$data[1, covariates, drop = FALSE]
+  } else {
+    unique(object$data[, covariates, drop = FALSE])
+  }
+  rownames(patterns) <- NULL
+  patterns
 }
 
 # brms checks newdata for the variables in the response's addition terms even

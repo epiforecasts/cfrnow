@@ -16,8 +16,9 @@ posterior_cumulative_incidence(
 \item{object}{A \code{cfrnow_fit} from \code{\link[=fit_cfr]{fit_cfr()}}.}
 
 \item{newdata}{A data frame with the covariates of the \code{prob} and delay
-formulas, one row per covariate pattern. Defaults to the fitted cases,
-\code{object$data}.}
+formulas, one row per covariate pattern. Defaults to the distinct
+covariate patterns among the fitted cases, in the order they first appear
+in \code{object$data} (a single row for a fit without covariates).}
 
 \item{times}{Days since onset at which to evaluate. Defaults to every day
 from 0 to the longest follow-up in the fitted data.}

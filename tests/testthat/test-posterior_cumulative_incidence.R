@@ -51,6 +51,19 @@ test_that(".daily_hazards gives NA once every case has resolved", {
   expect_true(is.na(.daily_hazards(inc, 0:1, 0, "hazard")$death[1]))
 })
 
+test_that(".covariate_patterns keeps one row per distinct pattern", {
+  fit <- list(data = data.frame(
+    y = 1:4, outcome = 0, pwindow = 1, swindow = 1,
+    group = c("a", "b", "a", "b"), sex = c("f", "f", "f", "m")
+  ))
+  expect_equal(
+    .covariate_patterns(fit),
+    data.frame(group = c("a", "b", "b"), sex = c("f", "f", "m"))
+  )
+  no_covariates <- .covariate_patterns(list(data = fit$data[, 1:4]))
+  expect_equal(dim(no_covariates), c(1, 0))
+})
+
 test_that(".with_addition_terms fills only the missing response variables", {
   nd <- .with_addition_terms(data.frame(group = "a", pwindow = 2))
   expect_equal(nd$pwindow, 2)
@@ -119,6 +132,11 @@ test_that("posterior_cumulative_incidence is consistent with prob and the hazard
     at_risk <- at_risk * (1 - pick(h, "death", t) - pick(h, "recovery", t))
     expect_equal(inc_death, pick(ci, "death", t + 1))
   }
+
+  # by default, one curve per distinct covariate pattern in the fitted data
+  expect_equal(
+    sort(unique(posterior_cumulative_incidence(fit, times = 5)$row)), 1:2
+  )
 
   # covariates only, no response columns, is enough for newdata
   expect_no_error(
