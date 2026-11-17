@@ -66,8 +66,6 @@ ys <- seq(740, 150, length.out = length(run))
 ## --- drawing ---------------------------------------------------------------
 
 make_logo <- function(palette) {
-  list2env(palette, environment())
-
   ## --- row parts -------------------------------------------------------------
 
   case_bar <- function(x1, x2, y) {
@@ -76,7 +74,7 @@ make_logo <- function(palette) {
         '<line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" ',
         'stroke="%s" stroke-width="34" stroke-linecap="round"/>'
       ),
-      x1, flip(y), x2, flip(y), bar_col
+      x1, flip(y), x2, flip(y), palette$bar_col
     )
   }
 
@@ -84,7 +82,7 @@ make_logo <- function(palette) {
   died_mark <- function(x, y) {
     sprintf(
       '<circle cx="%.0f" cy="%.0f" r="42" fill="%s"/>',
-      x, flip(y), died_col
+      x, flip(y), palette$died_col
     )
   }
 
@@ -95,7 +93,7 @@ make_logo <- function(palette) {
         '<circle cx="%.0f" cy="%.0f" r="34" fill="%s" ',
         'stroke="%s" stroke-width="24"/>'
       ),
-      x, flip(y), bg, recovered_col
+      x, flip(y), palette$bg, palette$recovered_col
     )
   }
 
@@ -107,7 +105,7 @@ make_logo <- function(palette) {
         'fill="none" stroke="%s" stroke-width="22" ',
         'stroke-linecap="round" stroke-linejoin="round"/>'
       ),
-      x, flip(y), open_col
+      x, flip(y), palette$open_col
     )
   }
 
@@ -125,7 +123,7 @@ make_logo <- function(palette) {
 
   ## --- assemble --------------------------------------------------------------
 
-  svg <- c(
+  logo <- c(
     sprintf(
       paste0(
         '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" ',
@@ -135,8 +133,8 @@ make_logo <- function(palette) {
     ),
     "<defs>",
     '<linearGradient id="g" x1="0" y1="0" x2="0" y2="1">',
-    sprintf('<stop offset="0" stop-color="%s"/>', bg),
-    sprintf('<stop offset="1" stop-color="%s"/>', bg_foot),
+    sprintf('<stop offset="0" stop-color="%s"/>', palette$bg),
+    sprintf('<stop offset="1" stop-color="%s"/>', palette$bg_foot),
     "</linearGradient>",
     sprintf('<clipPath id="clip"><polygon points="%s"/></clipPath>', hex),
     "</defs>",
@@ -149,7 +147,7 @@ make_logo <- function(palette) {
         '<line x1="%.0f" y1="%.0f" x2="%.0f" y2="%.0f" ',
         'stroke="%s" stroke-width="12" stroke-linecap="round"/>'
       ),
-      x_start - 40, flip(90), x_start - 40, flip(800), rule_col
+      x_start - 40, flip(90), x_start - 40, flip(800), palette$rule_col
     ),
     rows,
     "</g>",
@@ -160,19 +158,19 @@ make_logo <- function(palette) {
         'font-size="252" font-weight="600" letter-spacing="2" fill="%s">',
         'cfr<tspan fill="%s">now</tspan></text>'
       ),
-      width %/% 2L, ink, died_col
+      width %/% 2L, palette$ink, palette$died_col
     ),
     sprintf(
       paste0(
         '<polygon points="%s" fill="none" stroke="%s" ',
         'stroke-width="44" stroke-linejoin="round"/>'
       ),
-      hex, border
+      hex, palette$border
     ),
     "</svg>"
   )
 
-  svg
+  logo
 }
 
 writeLines(make_logo(light), file.path("man", "figures", "logo.svg"))
