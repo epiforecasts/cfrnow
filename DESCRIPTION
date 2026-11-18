@@ -3,7 +3,7 @@ Title: Real-Time Case Fatality Ratio via a Mixture-Cure Survival Model
 Version: 0.4.1
 Authors@R:
     person("Sebastian", "Funk", , "sebastian.funk@lshtm.ac.uk",
-           role = c("aut", "cre"))
+           role = c("aut", "cre", "cph"))
 Description: Estimates a real-time case fatality ratio (CFR) from line-list data
     using a Bayesian mixture-cure survival model, registered as an 'epidist'
     model type so the CFR and the onset-to-death delay both take 'brms'
