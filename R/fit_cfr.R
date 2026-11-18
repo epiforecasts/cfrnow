@@ -144,7 +144,7 @@ fit_cfr <- function(data,
       rd <- .delay_family_prior(recovery_delay, main = FALSE)
       rfam <- rd$family
       prior <- c(prior, rd$prior)
-      attr(cure, "recovery_family") <- brms:::validate_family(rfam) # nolint
+      attr(cure, "recovery_family") <- rfam
       attr(cure, "recovery_max") <- rd$max
     }
   } else if (!is.null(recovery_delay)) {
@@ -190,10 +190,10 @@ fit_cfr <- function(data,
   fit$cfrnow <- list(
     n_cases = nrow(cure),
     n_deaths = sum(cure$outcome == .CURE_DEATH),
-    family = brms:::validate_family(dfam)$family, # nolint
+    family = dfam$family,
     use_recovery = use_recovery,
     recovery_family = if (use_recovery) {
-      brms:::validate_family(rfam)$family # nolint
+      rfam$family
     } else {
       NA_character_
     },

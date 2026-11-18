@@ -20,15 +20,19 @@ put covariates (or a time-varying effect) on either.
 
 ## Installation
 
-Install `cfrnow` from the epiforecasts
-[r-universe](https://epiforecasts.r-universe.dev/):
+Install the released version of `cfrnow` from CRAN:
+
+``` r
+install.packages("cfrnow")
+```
+
+or the development version from the epiforecasts r-universe:
 
 ``` r
 install.packages(
   "cfrnow",
   repos = c(
     "https://epiforecasts.r-universe.dev",
-    "https://epinowcast.r-universe.dev",
     getOption("repos")
   )
 )
@@ -38,8 +42,7 @@ This pulls in the packages `cfrnow` builds on
 ([epidist](https://epidist.epinowcast.org/),
 [brms](https://paulbuerkner.com/brms/),
 [primarycensored](https://primarycensored.epinowcast.org/) and
-[distspec](https://epiforecasts.io/distspec/)): `epidist` comes from the
-epinowcast r-universe, the rest from CRAN.
+[distspec](https://epiforecasts.io/distspec/)) from CRAN.
 
 Fitting runs through CmdStan, so you also need
 [cmdstanr](https://mc-stan.org/cmdstanr/) and a CmdStan install:

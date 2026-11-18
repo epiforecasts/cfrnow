@@ -20,4 +20,11 @@ and the primary (\code{pwindow}) and secondary (\code{swindow}) censoring widths
 the input carries timed recoveries the result is flagged for the two-outcome
 fit via a \code{use_recovery} attribute.
 }
+\examples{
+ll <- simulate_linelist(n = 100, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+cure <- as_epidist_cure_model(d)
+head(cure)
+table(cure$outcome)
+}
 \concept{cure_model}

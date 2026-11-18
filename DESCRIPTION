@@ -1,9 +1,9 @@
 Package: cfrnow
 Title: Real-Time Case Fatality Ratio via a Mixture-Cure Survival Model
-Version: 0.4.0.9000
+Version: 0.4.1
 Authors@R:
     person("Sebastian", "Funk", , "sebastian.funk@lshtm.ac.uk",
-           role = c("aut", "cre"))
+           role = c("aut", "cre", "cph"))
 Description: Estimates a real-time case fatality ratio (CFR) from line-list data
     using a Bayesian mixture-cure survival model, registered as an 'epidist'
     model type so the CFR and the onset-to-death delay both take 'brms'
@@ -21,9 +21,9 @@ Depends:
     distspec (>= 0.1.0),
     R (>= 4.1.0)
 Imports:
-    brms,
+    brms (>= 2.23.0),
     checkmate,
-    epidist,
+    epidist (>= 1.0.0),
     lifecycle,
     posterior,
     primarycensored (>= 1.5.2),
@@ -38,9 +38,6 @@ Suggests:
     testthat (>= 3.0.0)
 VignetteBuilder:
     knitr
-Remotes:
-    epinowcast/epidist,
-    paul-buerkner/brms
 Additional_repositories:
     https://stan-dev.r-universe.dev
 Config/testthat/edition: 3

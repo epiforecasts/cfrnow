@@ -181,6 +181,15 @@ naive_cfr <- function(n_deaths, n_cases) {
 #'   `cfr_prior_sd`, `cfr_low_information` and `ascertainment_ratio`
 #'   attributes.
 #' @family fit
+#' @examples
+#' \dontrun{
+#' ll <- simulate_linelist(n = 500, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+#' d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+#' fit <- fit_cfr(d, delay = LogNormal(Normal(2.4, 0.2), Normal(0.5, 0.15)))
+#' summary(fit)
+#' # fatal cases twice as likely to be ascertained as non-fatal ones
+#' summary(fit, ascertainment_ratio = 2)
+#' }
 #' @export
 summary.cfrnow_fit <- function(object, probs = c(0.025, 0.5, 0.975),
                                info_tol = 0.9, ascertainment_ratio = 1, ...) {
