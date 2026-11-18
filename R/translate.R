@@ -126,7 +126,7 @@
         .gamma_mu_prior(sh, .param_spec(pars$rate), loc_dpar),
         .prior_row(sh, shape_dpar, TRUE)
       )
-      list(family = stats::Gamma(link = "log"), prior = prior)
+      list(family = brms::brmsfamily("gamma", link = "log"), prior = prior)
     },
     weibull = {
       sh <- .param_spec(pars$shape)
