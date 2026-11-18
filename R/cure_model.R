@@ -48,6 +48,12 @@ NULL
 #'   already carrying `y`, `outcome`, `pwindow` and `swindow`.
 #' @return A data frame of class `epidist_cure_model`.
 #' @family cure_model
+#' @examples
+#' ll <- simulate_linelist(n = 100, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+#' d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+#' cure <- as_epidist_cure_model(d)
+#' head(cure)
+#' table(cure$outcome)
 #' @export
 as_epidist_cure_model <- function(data) {
   if (inherits(data, "cfrnow_data")) {

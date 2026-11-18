@@ -71,6 +71,16 @@ and defaults to 1 (no correction); because the correction is a post-hoc logit
 shift, sweep a range of \code{r} to show its leverage rather than trusting a
 single value.
 }
+\examples{
+\dontrun{
+ll <- simulate_linelist(n = 500, cfr = 0.4, delay = LogNormal(2.4, 0.5))
+d <- prepare_cfr_data(ll, obs_time = max(ll$onset_date) - 5)
+fit <- fit_cfr(d, delay = LogNormal(Normal(2.4, 0.2), Normal(0.5, 0.15)))
+summary(fit)
+# fatal cases twice as likely to be ascertained as non-fatal ones
+summary(fit, ascertainment_ratio = 2)
+}
+}
 \seealso{
 Other fit:
 \code{\link[=fit_cfr]{fit_cfr()}},
