@@ -11,7 +11,10 @@ Description: Estimates a real-time case fatality ratio (CFR) from line-list data
     fatal, dies at an interval-censored onset-to-death delay; cases still alive
     at the observation cut-off are right-censored, which corrects the downward
     bias of the naive deaths / cases ratio in real time. The delay is
-    co-estimated using the 'primarycensored' censored-distribution machinery.
+    co-estimated with the censored delay distributions of 'primarycensored',
+    which adjust for interval censoring of both onset and death (Park et al.
+    (2024) <doi:10.1101/2024.01.12.24301247>; Charniga et al. (2024)
+    <doi:10.1371/journal.pcbi.1012520>).
 License: MIT + file LICENSE
 URL: https://epiforecasts.io/cfrnow/, https://github.com/epiforecasts/cfrnow
 BugReports: https://github.com/epiforecasts/cfrnow/issues
