@@ -20,8 +20,13 @@ put covariates (or a time-varying effect) on either.
 
 ## Installation
 
-Install `cfrnow` from the epiforecasts
-[r-universe](https://epiforecasts.r-universe.dev/):
+Install the released version of `cfrnow` from CRAN:
+
+``` r
+install.packages("cfrnow")
+```
+
+or the development version from the epiforecasts r-universe:
 
 ``` r
 install.packages(
