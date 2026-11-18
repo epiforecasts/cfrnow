@@ -1,4 +1,6 @@
-# cfrnow (development version)
+# cfrnow 0.4.1
+
+* `cfrnow` now needs `epidist` 1.0.0 and `brms` 2.23.0, both from CRAN, so it installs without the development versions of either.
 
 # cfrnow 0.4.0
 
